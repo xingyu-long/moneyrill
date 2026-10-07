@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Moneyrill Zen theme mockup with fake data. Open with a hash: see README.md next to this file. -->
+    <meta charset="utf-8" />
+    <title>Zen desktop</title>
+    <style>
+      /* Shared Zen tokens and parts for the laptop and mobile mockups. */
+      @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap');
+      :root {
+        --bg: #eef1ea;
+        --card: #fbfcf8;
+        --card2: #f3f5ef;
+        --ink: #1f2a22;
+        --mute: #7d877f;
+        --dim: #aab2ab;
+        --line: #e7ebe3;
+        --sage: #5b7a62;
+        --soft: #dfe7da;
+        --clay: #c98b6b;
+        --up: #4d7c57;
+        --down: #b0644a;
+        --shadow: 0 1px 2px rgba(30, 40, 30, 0.04), 0 12px 32px -18px rgba(30, 40, 30, 0.18);
+        --c-housing: #5b7a62;
+        --c-groceries: #8fa878;
+        --c-dining: #c98b6b;
+        --c-transport: #d2ad62;
+        --c-shopping: #b4809a;
+        --c-subs: #7d90ad;
+        --c-income: #4d7c57;
+        --c-utilities: #6fa3a0;
+      }
+      .dark {
+        --bg: #121714;
+        --card: #1a211c;
+        --card2: #212a24;
+        --ink: #e6ebe3;
+        --mute: #8d998f;
+        --dim: #5d6a60;
+        --line: #26302a;
+        --sage: #93b59b;
+        --soft: #26332b;
+        --clay: #d79c7d;
+        --up: #93c49f;
+        --down: #e0957a;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -18px rgba(0, 0, 0, 0.6);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.55 Inter,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .serif {
+        font-family: 'Instrument Serif', serif;
+        font-weight: 400;
+      }
+      .mute {
+        color: var(--mute);
+      }
+      .up {
+        color: var(--up);
+      }
+      .down {
+        color: var(--down);
+      }
+      .sage {
+        color: var(--sage);
+      }
+      .clay {
+        color: var(--clay);
+      }
+      em {
+        font-style: italic;
+        color: var(--sage);
+      }
+      .card {
+        background: var(--card);
+        border-radius: 26px;
+        padding: 24px 26px;
+        box-shadow: var(--shadow);
+      }
+      .eyebrow {
+        font-size: 12px;
+        color: var(--mute);
+        letter-spacing: 0.04em;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .eyebrow a {
+        color: var(--sage);
+      }
+      .say {
+        font:
+          400 30px/1.15 'Instrument Serif',
+          serif;
+        margin: 10px 0 14px;
+      }
+      .prog {
+        height: 8px;
+        background: var(--soft);
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .prog i {
+        display: block;
+        height: 100%;
+        background: var(--sage);
+        border-radius: 9px;
+      }
+      .dot {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--card2);
+        display: grid;
+        place-items: center;
+        font-size: 18px;
+        flex: none;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--soft);
+        color: var(--up);
+        padding: 5px 13px;
+        border-radius: 999px;
+        font-weight: 500;
+        font-size: 13px;
+      }
+      .pend {
+        font-size: 11px;
+        color: var(--clay);
+        border: 1px solid var(--clay);
+        border-radius: 99px;
+        padding: 0 8px;
+        margin-left: 8px;
+        vertical-align: 1px;
+      }
+      .tag {
+        font-size: 12px;
+        padding: 2px 10px;
+        border-radius: 99px;
+        white-space: nowrap;
+      }
+      .chip {
+        white-space: nowrap;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: var(--card);
+        font-size: 13px;
+        color: var(--mute);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .chip.on {
+        background: var(--ink);
+        color: var(--bg);
+      }
+      .idea {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        color: var(--clay);
+        border: 1px solid var(--clay);
+        border-radius: 99px;
+        padding: 0 7px;
+        margin-left: 8px;
+        vertical-align: 2px;
+        font-family: Inter;
+      }
+      .toggle {
+        display: inline-block;
+        vertical-align: middle;
+        width: 44px;
+        height: 26px;
+        border-radius: 99px;
+        background: var(--sage);
+        position: relative;
+        flex: none;
+      }
+      .toggle i {
+        position: absolute;
+        right: 3px;
+        top: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .toggle.off {
+        background: var(--soft);
+      }
+      .toggle.off i {
+        right: auto;
+        left: 3px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 9px 18px;
+        border-radius: 999px;
+        background: var(--ink);
+        color: var(--bg);
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .btn.ghost {
+        background: var(--card2);
+        color: var(--ink);
+      }
+      .warn {
+        font-size: 12px;
+        color: var(--clay);
+        background: color-mix(in srgb, var(--clay) 14%, transparent);
+        padding: 2px 10px;
+        border-radius: 99px;
+      }
+    </style>
+    <style>
+      .nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 22px 64px;
+      }
+      .brand {
+        font: 400 28px 'Instrument Serif';
+      }
+      .brand i {
+        color: var(--sage);
+      }
+      .links {
+        display: flex;
+        gap: 4px;
+        background: var(--card);
+        padding: 5px;
+        border-radius: 999px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .links span {
+        padding: 7px 16px;
+        border-radius: 999px;
+        color: var(--mute);
+        font-size: 14px;
+      }
+      .links .on {
+        background: var(--ink);
+        color: var(--bg);
+      }
+      .circ {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--card);
+        display: grid;
+        place-items: center;
+        color: var(--mute);
+        margin-left: 8px;
+      }
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 8px 32px 56px;
+      }
+      .intro {
+        margin: 18px 0 26px;
+      }
+      .intro h1 {
+        font: 400 64px/1 'Instrument Serif';
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .intro p {
+        font: 400 24px/1.3 'Instrument Serif';
+        color: var(--mute);
+        margin: 10px 0 0;
+        max-width: 820px;
+      }
+      .intro p b {
+        font-weight: 400;
+        color: var(--ink);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 11px 0;
+        border-top: 1px solid var(--line);
+      }
+      .row.first,
+      .row:first-child {
+        border: 0;
+      }
+      .row .n {
+        flex: 1;
+        min-width: 0;
+      }
+      .row small {
+        display: block;
+        color: var(--mute);
+        font-size: 12.5px;
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+      .g2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .g3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .big {
+        font: 400 112px/1 'Instrument Serif';
+        letter-spacing: -0.02em;
+      }
+      .big span {
+        color: var(--mute);
+      }
+      .ranges {
+        display: flex;
+        gap: 4px;
+      }
+      .ranges span {
+        font-size: 13px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        color: var(--mute);
+      }
+      .ranges .on {
+        background: var(--card);
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      }
+      .mini {
+        display: flex;
+        gap: 22px;
+        font-size: 13px;
+        color: var(--mute);
+      }
+      .mini b {
+        display: block;
+        color: var(--ink);
+        font-weight: 500;
+        font-size: 16px;
+      }
+      h2 {
+        font: 400 28px 'Instrument Serif';
+        margin: 4px 0 10px;
+      }
+      .side {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+      }
+      .side .it {
+        display: flex;
+        justify-content: space-between;
+        padding: 9px 14px;
+        border-radius: 14px;
+        color: var(--mute);
+        font-size: 14px;
+      }
+      .side .it.on {
+        background: var(--card);
+        color: var(--ink);
+        box-shadow: var(--shadow);
+      }
+      .lab {
+        font-size: 12px;
+        color: var(--mute);
+        letter-spacing: 0.04em;
+        margin: 18px 14px 4px;
+      }
+      .bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+        height: 220px;
+      }
+      .bars .b {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+        justify-content: flex-end;
+      }
+      .bars .b div {
+        display: flex;
+        gap: 4px;
+        align-items: flex-end;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+      }
+      .bars i {
+        width: 40%;
+        border-radius: 8px 8px 3px 3px;
+        display: block;
+      }
+      .bars small {
+        font-size: 12px;
+        color: var(--mute);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th {
+        font-weight: 400;
+        font-size: 12px;
+        color: var(--mute);
+        text-align: right;
+        padding: 0 0 10px;
+        letter-spacing: 0.03em;
+      }
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+      td {
+        padding: 13px 0;
+        border-top: 1px solid var(--line);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font: 400 20px 'Instrument Serif';
+        flex: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      // Fake data shared by every mockup. Nothing here is real.
+      window.MR = {
+        net: '$303,390.40',
+        netShort: '$303.4K',
+        change: '+$4,812.27',
+        changePct: '+1.61%',
+        owned: '$331,204.11',
+        owed: '$27,813.71',
+        income: '$8,420.00',
+        spent: '$5,710.36',
+        kept: '$2,709.64',
+        rate: 32,
+        portfolio: '$186,540.92',
+        portfolioChg: '+2.84%',
+        kinds: [
+          ['Cash', 4, '$42,180.55', 13],
+          ['Investments', 3, '$286,540.92', 87],
+          ['Credit cards', 2, '-$3,963.71', 14],
+          ['Loans', 1, '-$23,850.00', 86],
+        ],
+        holdings: [
+          ['VTI', 'Vanguard Total Stock', '$92,410.10', '+3.1%'],
+          ['AAPL', 'Apple Inc.', '$31,882.40', '+5.4%'],
+          ['BND', 'Vanguard Total Bond', '$18,220.75', '-0.4%'],
+        ],
+        categories: [
+          ['🏠', 'Housing', '$2,100.00', 37],
+          ['🛒', 'Groceries', '$862.14', 15],
+          ['🍜', 'Dining out', '$640.80', 11],
+          ['🚗', 'Transport', '$410.22', 7],
+          ['🛍️', 'Shopping', '$381.95', 7],
+        ],
+        tx: [
+          ['Whole Foods Market', 'Oct 5', 'Groceries', '-$84.12', '🛒', false],
+          ['Acme Corp Payroll', 'Oct 4', 'Income', '+$4,210.00', '💼', false],
+          ['Amazon', 'Oct 4', 'Shopping', '-$62.99', '📦', true],
+          ['Blue Bottle Coffee', 'Oct 3', 'Dining out', '-$6.50', '☕', false],
+          ['Shell', 'Oct 2', 'Transport', '-$48.20', '⛽', false],
+          ['Netflix', 'Oct 1', 'Subscriptions', '-$15.49', '🎬', false],
+        ],
+        months: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+        monthIn: [7.9, 8.1, 8.4, 8.0, 8.6, 8.4],
+        monthOut: [6.2, 5.4, 6.8, 5.9, 5.1, 5.7],
+      };
+
+      // A seeded random walk drawn into a w x h box. Returns {line, area, last:[x,y]}.
+      MR.series = function (w, h, opts = {}) {
+        const { n = 60, seed = 7, drift = 0.6, vol = 2.2, pad = 4 } = opts;
+        let s = seed;
+        const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647 - 0.5;
+        const ys = [];
+        let v = 0;
+        for (let i = 0; i < n; i++) {
+          v += drift + rnd() * vol * 2;
+          ys.push(v);
+        }
+        const lo = Math.min(...ys),
+          hi = Math.max(...ys);
+        const pts = ys.map((y, i) => [
+          (i / (n - 1)) * w,
+          pad + (h - pad * 2) * (1 - (y - lo) / (hi - lo || 1)),
+        ]);
+        let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+        for (let i = 1; i < pts.length; i++) {
+          const [x0, y0] = pts[i - 1],
+            [x1, y1] = pts[i];
+          const cx = (x0 + x1) / 2;
+          line += ` C${cx.toFixed(1)},${y0.toFixed(1)} ${cx.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+        }
+        return { line, area: `${line} L${w},${h} L0,${h} Z`, last: pts[pts.length - 1] };
+      };
+
+      // Fill every <svg data-series="seed,drift,vol"> with paths styled by its data attributes.
+      MR.draw = function () {
+        document.querySelectorAll('svg[data-series]').forEach((svg) => {
+          const [seed, drift, vol] = svg.dataset.series.split(',').map(Number);
+          const vb = svg.viewBox.baseVal;
+          const s = MR.series(vb.width, vb.height, {
+            seed,
+            drift,
+            vol,
+            n: Number(svg.dataset.n || 60),
+          });
+          const ns = 'http://www.w3.org/2000/svg';
+          if (svg.dataset.fill) {
+            const a = document.createElementNS(ns, 'path');
+            a.setAttribute('d', s.area);
+            a.setAttribute('fill', svg.dataset.fill);
+            svg.appendChild(a);
+          }
+          const l = document.createElementNS(ns, 'path');
+          l.setAttribute('d', s.line);
+          l.setAttribute('fill', 'none');
+          l.setAttribute('stroke', svg.dataset.stroke || 'currentColor');
+          l.setAttribute('stroke-width', svg.dataset.width || '2');
+          l.setAttribute('vector-effect', 'non-scaling-stroke');
+          l.setAttribute('stroke-linecap', 'round');
+          svg.appendChild(l);
+          if (svg.dataset.dot) {
+            const c = document.createElementNS(ns, 'circle');
+            c.setAttribute('cx', s.last[0]);
+            c.setAttribute('cy', s.last[1]);
+            c.setAttribute('r', svg.dataset.dot);
+            c.setAttribute('fill', svg.dataset.stroke || 'currentColor');
+            svg.appendChild(c);
+          }
+        });
+      };
+      // Render a template with MR in scope into #app.
+      MR.render = function (fn) {
+        document.getElementById('app').innerHTML = fn(MR);
+        MR.draw();
+      };
+    </script>
+    <script>
+      const [PAGE, THEME] = (location.hash.slice(1) || 'home').split(',');
+      if (THEME == 'dark') document.documentElement.className = 'dark';
+      const DK = THEME == 'dark';
+      const CC = {
+        Housing: 'var(--c-housing)',
+        Groceries: 'var(--c-groceries)',
+        'Dining out': 'var(--c-dining)',
+        Transport: 'var(--c-transport)',
+        Shopping: 'var(--c-shopping)',
+        Subscriptions: 'var(--c-subs)',
+        Income: 'var(--c-income)',
+        Utilities: 'var(--c-utilities)',
+      };
+      const tint = (c) => `color-mix(in srgb,${c} 16%,transparent)`;
+      const nav = (on) =>
+        `<div class="nav"><div class="brand">money<i>rill</i></div><div class="links">${['Home', 'Accounts', 'Investments', 'Transactions', 'Reports'].map((t) => `<span class="${t == on ? 'on' : ''}">${t}</span>`).join('')}</div><div style="display:flex"><div class="circ">⌕</div><div class="circ" style="${on == 'Settings' ? 'background:var(--ink);color:var(--bg)' : ''}">⚙</div></div></div>`;
+      const sage = DK ? '#93b59b' : '#5b7a62';
+      const area = (seed, h, id, o = {}) =>
+        `<svg viewBox="0 0 ${o.w || 1000} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block" data-series="${seed},${o.drift || 0.5},${o.vol || 1.6}" data-n="${o.n || 50}" data-stroke="${o.c || sage}" data-fill="url(#${id})" data-width="${o.sw || 2.5}" ${o.dot ? 'data-dot="5"' : ''}><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${o.c || sage}" stop-opacity="${DK ? 0.25 : 0.2}"/><stop offset="1" stop-color="${o.c || sage}" stop-opacity="0"/></linearGradient></defs></svg>`;
+      const line = (seed, h, c) =>
+        `<svg viewBox="0 0 100 ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px" data-series="${seed},0.5,1.8" data-n="30" data-stroke="${c || sage}" data-width="2"></svg>`;
+      const txr = (t, first) =>
+        `<div class="row ${first ? 'first' : ''}"><div class="dot" style="background:${tint(CC[t[2]])}">${t[4]}</div><div class="n">${t[0]}${t[5] ? '<span class="pend">pending</span>' : ''}<small>${t[2]} · ${t[6] || 'Chase Sapphire'}</small></div><span class="num ${t[3][0] == '+' ? 'up' : ''}">${t[3]}</span></div>`;
+      const accts = [
+        [
+          'Cash',
+          '$42,180.55',
+          [
+            ['C', '#1a5fb4', 'Chase Checking', '••1234', '$12,402.18', 11],
+            ['A', '#6c2bd9', 'Ally Savings', '••8820', '$29,778.37', 12],
+          ],
+        ],
+        [
+          'Investments',
+          '$286,540.92',
+          [
+            ['F', '#2f8a4a', 'Fidelity 401(k)', '••0091', '$186,540.92', 13],
+            ['V', '#a8323a', 'Vanguard Brokerage', '••3317', '$100,000.00', 14],
+          ],
+        ],
+        [
+          'Credit cards',
+          '$3,963.71',
+          [
+            ['C', '#1a5fb4', 'Chase Sapphire', '••4410', '$2,811.06', 15, 1],
+            ['A', '#2a6fdb', 'Amex Gold', '••1007', '$1,152.65', 16],
+          ],
+        ],
+        ['Loans', '$23,850.00', [['T', '#b03a2e', 'Toyota Auto Loan', '••5521', '$23,850.00', 17]]],
+      ];
+
+      const pages = {
+        home: (
+          m,
+        ) => `${nav('Home')}<div style="text-align:center;padding:24px 0 0"><div class="mute">Good afternoon. Here's where you stand today.</div>
+<div class="big" style="margin:10px 0 8px">$303,390<span>.40</span></div><span class="pill">↗ ${m.change} since last month</span>
+<div class="ranges" style="justify-content:center;margin-top:20px">${['1M', '3M', '6M', '1Y', 'All'].map((r) => `<span class="${r == '6M' ? 'on' : ''}">${r}</span>`).join('')}</div>
+<div style="margin-top:6px">${area(14, 190, 'hz', { w: 1440 })}</div></div>
+<div class="page" style="margin-top:-36px;position:relative">
+<div class="g3">
+ <div class="card"><div class="eyebrow"><span>October so far</span><a>Reports →</a></div><div class="say">You've kept <em>${m.rate}%</em> of your income this month.</div><div class="prog"><i style="width:${m.rate}%"></i></div>
+  <div class="mini" style="margin-top:14px"><span>In<b>${m.income}</b></span><span>Out<b>${m.spent}</b></span><span>Kept<b class="up">${m.kept}</b></span></div></div>
+ <div class="card"><div class="eyebrow"><span>Assets and debt</span><a>Accounts →</a></div><div class="say">You own <em>$331K</em> and owe <span class="clay">$27.8K</span>.</div><div class="prog" style="background:color-mix(in srgb,var(--clay) 25%,transparent)"><i style="width:92%"></i></div>
+  <div class="mini" style="margin-top:14px"><span>Cash<b>$42.2K</b></span><span>Invested<b>$286.5K</b></span><span>Loans<b>$23.9K</b></span></div></div>
+ <div class="card"><div class="eyebrow"><span>Investments</span><a>Holdings →</a></div><div class="say">Your portfolio grew <em>${m.portfolioChg}</em> this month.</div>${line(31, 40)}
+  <div class="mini" style="margin-top:8px">${m.holdings.map((h) => `<span>${h[0]}<b>${h[2].replace(/\.\d\d$/, '')}</b></span>`).join('')}</div></div>
+</div>
+<div class="g2" style="grid-template-columns:1fr 1.25fr;margin-top:18px">
+ <div class="card"><div class="eyebrow"><span>Spending</span><a>See report</a></div><h2>Where it went</h2>
+  ${m.categories.map((c, i) => `<div class="row ${i ? '' : 'first'}"><div class="dot" style="background:${tint(CC[c[1]])}">${c[0]}</div><div class="n">${c[1]}<div class="prog" style="height:5px;margin-top:6px"><i style="width:${(c[3] / 37) * 100}%;background:${CC[c[1]]}"></i></div></div><span class="num">${c[2]}</span></div>`).join('')}</div>
+ <div class="card"><div class="eyebrow"><span>Activity</span><a>All transactions</a></div><h2>Recently</h2>${m.tx.map((t, i) => txr(t, !i)).join('')}</div>
+</div></div>`,
+
+        transactions: (m) => {
+          const days = [
+            ['Today · Monday, Oct 5', '-$84.12', [m.tx[0]]],
+            [
+              'Sunday, Oct 4',
+              '+$4,147.01',
+              [
+                [...m.tx[1].slice(0, 6), 'Chase Checking'],
+                [...m.tx[2].slice(0, 6), 'Amex Gold'],
+              ],
+            ],
+            ['Saturday, Oct 3', '-$6.50', [m.tx[3]]],
+            ['Friday, Oct 2', '-$48.20', [m.tx[4]]],
+            [
+              'Thursday, Oct 1',
+              '-$2,115.49',
+              [
+                [...m.tx[5].slice(0, 6), 'Amex Gold'],
+                [
+                  'Rent · Oakwood Apts',
+                  'Oct 1',
+                  'Housing',
+                  '-$2,100.00',
+                  '🏠',
+                  false,
+                  'Chase Checking',
+                ],
+              ],
+            ],
+          ];
+          return `${nav('Transactions')}<div class="page"><div class="intro"><h1>Transactions</h1><p>48 this month, <b>$5,710 out</b> and <b>$8,420 in</b>. Three are still pending.</p></div>
+<div style="display:grid;grid-template-columns:220px 1fr 340px;gap:22px">
+ <div class="side"><div class="card" style="padding:10px 16px;border-radius:999px;color:var(--mute);font-size:14px">⌕ Search</div>
+  <div class="lab">WHEN</div>${['This month', 'Last month', 'This year', 'Custom…'].map((x, i) => `<div class="it ${i ? '' : 'on'}">${x}</div>`).join('')}
+  <div class="lab">ACCOUNTS</div>${[
+    ['All accounts', '10', 1],
+    ['Chase Sapphire', '21'],
+    ['Chase Checking', '9'],
+    ['Amex Gold', '14'],
+  ]
+    .map(
+      (x) => `<div class="it ${x[2] ? 'on' : ''}"><span>${x[0]}</span><span>${x[1]}</span></div>`,
+    )
+    .join('')}
+  <div class="lab">CATEGORIES</div><div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px">${Object.keys(
+    CC,
+  )
+    .slice(0, 7)
+    .map((k) => `<span class="tag" style="background:${tint(CC[k])};color:${CC[k]}">${k}</span>`)
+    .join('')}</div></div>
+ <div>${days.map((d) => `<div class="eyebrow" style="margin:6px 8px 8px"><span>${d[0]}</span><span class="${d[1][0] == '+' ? 'up' : ''}">${d[1]}</span></div><div class="card" style="padding:6px 22px;margin-bottom:16px">${d[2].map((t, i) => txr(t, !i).replace('class="row', 'class="row' + (t[0] == 'Whole Foods Market' ? ' sel' : ''))).join('')}</div>`).join('')}</div>
+ <div class="card" style="align-self:start;position:relative">
+  <div class="eyebrow"><span>Transaction</span><span>✕</span></div>
+  <div style="text-align:center;margin:18px 0 20px"><div class="dot" style="width:64px;height:64px;font-size:28px;margin:0 auto 12px;background:${tint(CC.Groceries)}">🛒</div>
+   <div style="font-weight:500">Whole Foods Market</div><div class="serif" style="font-size:52px;line-height:1.1">-$84.12</div><div class="mute" style="font-size:13px">Monday, October 5 · Posted</div></div>
+  ${[
+    [
+      'Category',
+      `<span class="tag" style="background:${tint(CC.Groceries)};color:${CC.Groceries}">🛒 Groceries</span>`,
+    ],
+    ['Account', 'Chase Sapphire ••4410'],
+    ['Bank name', '<span class="mute" style="font-size:12px">WHOLEFDS MKT 10234</span>'],
+    ['Note', '<span style="color:var(--dim)">Add a note…</span>'],
+    ['Count in reports', '<span class="toggle"><i></i></span>'],
+  ]
+    .map(
+      (r, i) =>
+        `<div class="row ${i ? '' : 'first'}" style="justify-content:space-between"><span class="mute" style="font-size:14px">${r[0]}</span><span style="font-size:14px">${r[1]}</span></div>`,
+    )
+    .join('')}
+  <div style="display:flex;gap:8px;margin-top:16px"><span class="btn ghost" style="flex:1;text-align:center">Split</span><span class="btn" style="flex:1;text-align:center">Save</span></div>
+  <div class="mute" style="font-size:13px;margin-top:20px;font-family:'Instrument Serif';font-size:20px">You've spent <em>$612</em> at Whole Foods in the last six months.</div></div>
+</div></div>`;
+        },
+
+        accounts: (
+          m,
+        ) => `${nav('Accounts')}<div class="page"><div class="intro"><h1>Accounts</h1><p>Ten accounts, all synced within the last two hours. <b>One card needs reconnecting.</b></p></div>
+<div class="card" style="display:grid;grid-template-columns:340px 1fr;gap:30px;align-items:center">
+ <div><div class="eyebrow"><span>Net worth</span></div><div class="serif" style="font-size:64px;line-height:1.05;margin:6px 0">${m.net}</div><span class="pill">↗ ${m.change} this month</span>
+  <div style="display:flex;height:10px;border-radius:9px;overflow:hidden;gap:3px;margin-top:22px"><i style="flex:331;background:var(--sage)"></i><i style="flex:28;background:var(--clay)"></i></div>
+  <div class="mini" style="margin-top:12px;justify-content:space-between"><span>Assets<b>${m.owned}</b></span><span style="text-align:right">Liabilities<b>${m.owed}</b></span></div></div>
+ <div>${area(5, 200, 'acc', { dot: 1 })}</div></div>
+<div class="g2" style="margin-top:18px">${accts
+          .map(
+            (
+              g,
+            ) => `<div class="card"><div class="eyebrow"><span>${g[0].toUpperCase()}</span><span class="num" style="font-size:14px;color:var(--ink)">${g[1]}</span></div>
+ ${g[2].map((a, i) => `<div class="row ${i ? '' : 'first'}" style="padding:14px 0"><div class="logo" style="background:${a[1]}">${a[0]}</div><div class="n">${a[2]}<small>${a[3]} · ${a[6] ? '<span class="warn">Reconnect</span>' : 'synced 2h ago'}</small></div><div style="width:110px">${line(a[5], 28, g[0] == 'Credit cards' || g[0] == 'Loans' ? (DK ? '#d79c7d' : '#c98b6b') : sage)}</div><span class="num" style="width:120px;text-align:right">${a[4]}</span></div>`).join('')}</div>`,
+          )
+          .join('')}</div></div>`,
+
+        investments: (
+          m,
+        ) => `${nav('Investments')}<div class="page"><div class="intro"><h1>Investments</h1><p>Your portfolio is worth <b>${m.portfolio}</b>, up <em>${m.portfolioChg}</em> this month. Most of it sits in broad US index funds.</p></div>
+<div class="card"><div class="eyebrow"><span>Portfolio value · all investment accounts</span><div class="ranges">${['1W', '1M', '3M', 'YTD', '1Y', 'All'].map((r) => `<span class="${r == '1Y' ? 'on' : ''}" style="${r == '1Y' ? 'background:var(--card2)' : ''}">${r}</span>`).join('')}</div></div>
+ <div style="display:flex;gap:40px;align-items:flex-end;margin:6px 0 10px"><div class="serif" style="font-size:64px;line-height:1">${m.portfolio}</div><div class="mini" style="padding-bottom:8px"><span>1Y return<b class="up">+14.2%</b></span><span>Gain<b class="up">+$23,190.40</b></span><span>Contributed<b>$12,000</b></span></div></div>
+ ${area(21, 230, 'inv', { drift: 0.6, vol: 2 })}</div>
+<div class="g2" style="grid-template-columns:1fr 1.5fr;margin-top:18px">
+ <div class="card"><div class="eyebrow"><span>Allocation</span><span><span class="chip on" style="padding:3px 10px">Asset class</span> <span class="chip" style="padding:3px 10px">Account</span> <span class="chip" style="padding:3px 10px">Security</span></span></div>
+  <div class="say" style="font-size:26px">Mostly <em>US stocks</em>, with a fifth abroad.</div>
+  <div style="display:flex;height:16px;border-radius:9px;overflow:hidden;gap:3px">${[
+    [62, 'var(--sage)'],
+    [18, 'var(--c-groceries)'],
+    [12, 'var(--c-transport)'],
+    [8, 'var(--clay)'],
+  ]
+    .map((s) => `<i style="flex:${s[0]};background:${s[1]}"></i>`)
+    .join('')}</div>
+  ${[
+    ['US stocks', '62%', '$115,655', 'var(--sage)'],
+    ['International stocks', '18%', '$33,577', 'var(--c-groceries)'],
+    ['Bonds', '12%', '$22,385', 'var(--c-transport)'],
+    ['Cash', '8%', '$14,923', 'var(--clay)'],
+  ]
+    .map(
+      (a, i) =>
+        `<div class="row ${i ? '' : 'first'}" style="margin-top:${i ? 0 : 12}px"><i style="width:10px;height:10px;border-radius:50%;background:${a[3]}"></i><span class="n">${a[0]}</span><span class="mute">${a[1]}</span><span class="num" style="width:90px;text-align:right">${a[2]}</span></div>`,
+    )
+    .join('')}</div>
+ <div class="card"><div class="eyebrow"><span>Holdings</span><a>Edit holdings</a></div>
+  <table style="margin-top:14px"><tr><th>Security</th><th>Shares</th><th>Price</th><th>Value</th><th>Return</th></tr>
+  ${[
+    ['VTI', 'Vanguard Total Stock Market', '312.4', '$295.81', '$92,410.10', '+3.1%'],
+    ['AAPL', 'Apple Inc.', '128', '$249.08', '$31,882.40', '+5.4%'],
+    ['VXUS', 'Vanguard Total Intl Stock', '480', '$62.75', '$30,120.00', '+1.9%'],
+    ['BND', 'Vanguard Total Bond', '251', '$72.59', '$18,220.75', '-0.4%'],
+    ['SPAXX', 'Fidelity Money Market', '13,907', '$1.00', '$13,907.67', '+0.4%'],
+  ]
+    .map(
+      (h) =>
+        `<tr><td><b style="font-weight:500">${h[0]}</b> <span class="mute" style="font-size:13px">${h[1]}</span></td><td>${h[2]}</td><td>${h[3]}</td><td>${h[4]}</td><td class="${h[5][0] == '+' ? 'up' : 'down'}">${h[5]}</td></tr>`,
+    )
+    .join('')}</table></div>
+</div></div>`,
+
+        reports: (m) => {
+          const mo = [
+            [7.6, 6.1],
+            [7.9, 5.6],
+            [8.2, 6.9],
+            [7.8, 5.8],
+            [7.9, 6.2],
+            [8.1, 5.4],
+            [8.4, 6.8],
+            [8.0, 5.9],
+            [8.6, 5.1],
+            [8.4, 5.7],
+          ];
+          return `${nav('Reports')}<div class="page"><div class="intro" style="display:flex;justify-content:space-between;align-items:flex-end"><div><h1>Reports</h1><p>This year you earned <b>$80,940</b> and spent <b>$59,460</b>. You kept <em>26.5%</em>, a little better than last year.</p></div>
+ <div style="display:flex;gap:8px;flex:none;margin-left:30px"><span class="chip on">Cash flow</span><span class="chip">Spending</span><span class="chip">Income</span><span class="chip">This year ▾</span><span class="chip">Filters</span></div></div>
+<div class="card"><div class="eyebrow"><span>Income and expenses · monthly</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--sage);margin-right:6px"></i>Income &nbsp; <i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--clay);margin:0 6px 0 10px"></i>Expenses</span></div>
+ <div class="bars" style="margin-top:22px">${mo.map((b, i) => `<div class="b"><div style="${i == 9 ? '' : 'opacity:.55'}"><i style="height:${b[0] * 11}%;background:var(--sage)"></i><i style="height:${b[1] * 11}%;background:var(--clay)"></i></div><small style="${i == 9 ? 'color:var(--ink);font-weight:600' : ''}">${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'][i]}</small></div>`).join('')}</div></div>
+<div class="g3" style="grid-template-columns:repeat(4,1fr);margin-top:18px">${[
+            ['Total income', '$80,940', '+6% vs 2025'],
+            ['Total spending', '$59,460', '-2% vs 2025'],
+            ['Net cash flow', '+$21,480', 'Jan 1 – Oct 6'],
+            ['Savings rate', '26.5%', 'up from 22.1%'],
+          ]
+            .map(
+              (s) =>
+                `<div class="card" style="padding:20px 22px"><div class="eyebrow"><span>${s[0]}</span></div><div class="serif" style="font-size:40px;line-height:1.1;margin-top:6px">${s[1]}</div><div class="mute" style="font-size:13px">${s[2]}</div></div>`,
+            )
+            .join('')}</div>
+<div class="g2" style="margin-top:18px">
+ <div class="card"><div class="eyebrow"><span>Spending by category</span><a>Open Spending →</a></div><h2>Where the year went</h2>
+  ${[
+    ['🏠', 'Housing', '$21,000', 35],
+    ['🛒', 'Groceries', '$8,214', 14],
+    ['🍜', 'Dining out', '$6,102', 10],
+    ['🚗', 'Transport', '$4,880', 8],
+    ['🛍️', 'Shopping', '$4,410', 7],
+    ['🎬', 'Subscriptions', '$1,620', 3],
+  ]
+    .map(
+      (c, i) =>
+        `<div class="row ${i ? '' : 'first'}"><div class="dot" style="background:${tint(CC[c[1]])}">${c[0]}</div><div class="n">${c[1]}<div class="prog" style="height:5px;margin-top:6px"><i style="width:${(c[3] / 35) * 100}%;background:${CC[c[1]]}"></i></div></div><span class="mute" style="width:44px;text-align:right">${c[3]}%</span><span class="num" style="width:90px;text-align:right">${c[2]}</span></div>`,
+    )
+    .join('')}</div>
+ <div class="card"><div class="eyebrow"><span>Income by source</span><a>Open Income →</a></div><h2>Where it came from</h2>
+  ${[
+    ['💼', 'Acme Corp Payroll', '$75,780', 94],
+    ['📈', 'Dividends & interest', '$3,412', 4],
+    ['↩️', 'Refunds', '$1,748', 2],
+  ]
+    .map(
+      (c, i) =>
+        `<div class="row ${i ? '' : 'first'}"><div class="dot" style="background:${tint('var(--c-income)')}">${c[0]}</div><div class="n">${c[1]}<div class="prog" style="height:5px;margin-top:6px"><i style="width:${c[3]}%"></i></div></div><span class="mute" style="width:44px;text-align:right">${c[3]}%</span><span class="num" style="width:90px;text-align:right">${c[2]}</span></div>`,
+    )
+    .join('')}
+  <div class="serif mute" style="font-size:20px;margin-top:18px;line-height:1.3">Your best month was <em>September</em>, when you kept $3,500.</div></div>
+</div></div>`;
+        },
+
+        settings: (
+          m,
+        ) => `${nav('Settings')}<div class="page"><div class="intro"><h1>Settings</h1><p>Everything stays on this machine, in your own database. <b>One connection needs your attention.</b></p></div>
+<div style="display:grid;grid-template-columns:260px 1fr;gap:26px">
+ <div class="side">${[
+   ['🔗', 'Connections', '1', 1],
+   ['🔄', 'Sync settings & activity'],
+   ['🏷️', 'Categories'],
+   ['🧭', 'Display and navigation'],
+   ['🗄️', 'Data'],
+ ]
+   .map(
+     (s) =>
+       `<div class="it ${s[3] ? 'on' : ''}"><span>${s[0]}&nbsp; ${s[1]}</span>${s[2] ? '<span class="warn">' + s[2] + '</span>' : ''}</div>`,
+   )
+   .join('')}
+  <div class="card" style="margin-top:18px;padding:18px"><div class="serif" style="font-size:22px;line-height:1.2">Yours to keep.</div><div class="mute" style="font-size:13px;margin-top:6px">Local storage, private database, your financial picture.</div></div></div>
+ <div>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><div><div class="serif" style="font-size:30px">Connections</div><div class="mute" style="font-size:14px">6 institutions · 10 accounts · last sync 4 minutes ago</div></div><div style="display:flex;gap:8px"><span class="btn ghost">Sync now</span><span class="btn">+ Connect account</span></div></div>
+  <div class="g2">${[
+    [
+      'C',
+      '#1a5fb4',
+      'Chase',
+      '3 accounts · Checking, Sapphire, Freedom',
+      'Connected',
+      'Oct 6, 9:14 AM',
+      'Added Mar 2, 2026',
+    ],
+    [
+      'A',
+      '#2a6fdb',
+      'American Express',
+      '1 account · Gold Card',
+      'Needs attention',
+      'Failed Oct 6, 9:14 AM',
+      'Added Mar 2, 2026',
+      1,
+    ],
+    [
+      'F',
+      '#2f8a4a',
+      'Fidelity',
+      '2 accounts · 401(k), Cash',
+      'Connected',
+      'Oct 6, 9:13 AM',
+      'Added Mar 9, 2026',
+    ],
+    [
+      'V',
+      '#a8323a',
+      'Vanguard',
+      '1 account · Brokerage',
+      'Connected',
+      'Oct 6, 9:13 AM',
+      'Added Apr 1, 2026',
+    ],
+    [
+      'A',
+      '#6c2bd9',
+      'Ally Bank',
+      '1 account · Savings',
+      'Connected',
+      'Oct 6, 9:12 AM',
+      'Added Apr 1, 2026',
+    ],
+    [
+      'T',
+      '#b03a2e',
+      'Toyota Financial',
+      '1 account · Auto loan',
+      'Manual',
+      'Updated Sep 30',
+      'Added May 12, 2026',
+    ],
+  ]
+    .map(
+      (
+        c,
+      ) => `<div class="card" style="padding:20px 22px;${c[7] ? 'box-shadow:0 0 0 1.5px var(--clay),var(--shadow)' : ''}"><div style="display:flex;gap:14px;align-items:center"><div class="logo" style="background:${c[1]}">${c[0]}</div><div style="flex:1"><b style="font-weight:500">${c[2]}</b><div class="mute" style="font-size:13px">${c[3]}</div></div>${c[7] ? '<span class="warn">Needs attention</span>' : `<span class="tag" style="background:var(--soft);color:var(--up)">${c[4]}</span>`}</div>
+   <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:13px" class="mute"><span>${c[5]}</span><span>${c[6]}</span></div>
+   ${c[7] ? '<div style="display:flex;gap:8px;margin-top:14px"><span class="btn" style="flex:1;text-align:center;background:var(--clay)">Reconnect</span><span class="btn ghost">Details</span></div>' : ''}</div>`,
+    )
+    .join('')}</div>
+  <div class="card" style="margin-top:18px"><div class="eyebrow"><span>Sync schedule</span><a>Sync settings →</a></div><div class="say" style="font-size:26px;margin-bottom:6px">Moneyrill checks your banks <em>every day at 6:00 AM</em>.</div><div class="mute" style="font-size:14px">Next sync tomorrow, October 7.</div></div>
+ </div></div></div>`,
+      };
+      MR.render((m) => pages[PAGE](m));
+    </script>
+  </body>
+</html>

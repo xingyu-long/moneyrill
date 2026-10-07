@@ -1,0 +1,27 @@
+node_modules
+dist/
+.env
+secrets/*
+!secrets/.gitkeep
+test-results/
+playwright-report/
+
+backups/
+.env.*
+!.env.example
+.DS_Store
+*.log
+*.dump
+coverage/
+fixtures/
+!.env.production.example
+.releases/
+.api-snapshot-*.json
+__pycache__/
+*.pyc
+
+# Local Claude Code permissions (personal, never committed)
+.claude/settings.local.json
+# The maintainer's own agent instructions and notes: personal, never committed
+CLAUDE.local.md
+private/
