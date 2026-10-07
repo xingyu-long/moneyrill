@@ -1,0 +1,90 @@
+/*
+ * The Zen palette (docs/plans/zen-theme.md). Zen night is the default; `data-theme='light'` is Zen. Every variable is
+ * set in both blocks (tests/theme.test.ts checks), and no component carries a colour of its own: charts and
+ * categories use the variables here too, so a theme is always whole.
+ */
+:root {
+  --page: #121714;
+  --surface: #1a211c;
+  --muted-surface: #212a24;
+  --soft: #26332b;
+  --line: #26302a;
+  --text: #e6ebe3;
+  --muted: #8d998f;
+  --ink: #e6ebe3;
+  --on-ink: #121714;
+  --green: #93c49f;
+  --sage: #93b59b;
+  --red: #e0957a;
+  --clay: #d79c7d;
+  --warning: #e0957a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -18px rgba(0, 0, 0, 0.6);
+  --overlay: #0a0f0bb3;
+  --chart-line: #93b59b;
+  --chart-fill: #93b59b40;
+  --income: #93b59b;
+  --expense: #d79c7d;
+  --chart-grid: #26302a;
+  --chart-tick: #8d998f;
+  --chart-axis: #3a463e;
+  --chart-cursor: rgba(255, 255, 255, 0.05);
+  --chart-dot: #fff;
+  --tip-bg: #1a211c;
+  --tip-line: #26302a;
+  --tip-text: #e6ebe3;
+  --cat-1: #72967a;
+  --cat-2: #a9bc97;
+  --cat-3: #d7a890;
+  --cat-4: #ddc28a;
+  --cat-5: #c7a0b3;
+  --cat-6: #9cabc1;
+  --cat-7: #8eb7b5;
+  --cat-8: #bbb099;
+  --cat-9: #a799bc;
+  --cat-10: #c8957e;
+  --cat-11: #a1bed1;
+  --cat-12: #b6b880;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --page: #eef1ea;
+  --surface: #fbfcf8;
+  --muted-surface: #f3f5ef;
+  --soft: #dfe7da;
+  --line: #e7ebe3;
+  --text: #1f2a22;
+  --muted: #66706a;
+  --ink: #1f2a22;
+  --on-ink: #fbfcf8;
+  --green: #4d7c57;
+  --sage: #5b7a62;
+  --red: #a35a3f;
+  --clay: #c98b6b;
+  --warning: #a35a3f;
+  --shadow: 0 1px 2px rgba(30, 40, 30, 0.04), 0 12px 32px -18px rgba(30, 40, 30, 0.18);
+  --overlay: #1f2a2273;
+  --chart-line: #5b7a62;
+  --chart-fill: #5b7a6233;
+  --income: #5b7a62;
+  --expense: #c98b6b;
+  --chart-grid: #e7ebe3;
+  --chart-tick: #66706a;
+  --chart-axis: #d3dacf;
+  --chart-cursor: rgba(31, 42, 34, 0.05);
+  --chart-dot: #1f2a22;
+  --tip-bg: #fbfcf8;
+  --tip-line: #e7ebe3;
+  --tip-text: #1f2a22;
+  --cat-1: #5b7a62;
+  --cat-2: #8fa878;
+  --cat-3: #c98b6b;
+  --cat-4: #d2ad62;
+  --cat-5: #b4809a;
+  --cat-6: #7d90ad;
+  --cat-7: #6fa3a0;
+  --cat-8: #a7987a;
+  --cat-9: #8c7aa8;
+  --cat-10: #b9785a;
+  --cat-11: #7fa6c0;
+  --cat-12: #a3a65f;
+}

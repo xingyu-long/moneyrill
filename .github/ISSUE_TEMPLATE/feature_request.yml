@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an improvement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do that you cannot do today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see?
+  - type: markdown
+    attributes:
+      value: Moneyrill is a one-person, self-hosted, local-first app. Features that need a hosted service, user accounts or sending data to third parties are unlikely to fit.

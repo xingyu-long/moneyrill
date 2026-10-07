@@ -1,0 +1,4 @@
+# Paths left out of the public copy (see scripts/export-public.sh). One path or directory per line; # starts a comment.
+# The private overlay: the maintainer's own agent rules and notes (see CLAUDE.local.md)
+CLAUDE.local.md
+private

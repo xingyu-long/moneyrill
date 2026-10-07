@@ -1,0 +1,26 @@
+node_modules
+dist/
+.env
+secrets/*
+!secrets/.gitkeep
+test-results/
+playwright-report/
+
+backups/
+.env.*
+!.env.example
+.DS_Store
+*.log
+*.dump
+coverage/
+fixtures/
+!.env.production.example
+.releases/
+.api-snapshot-*.json
+__pycache__/
+*.pyc
+
+# Local Claude Code permissions (personal, never committed)
+.claude/settings.local.json
+# Personal agent instructions; the private repository tracks its own copy (git add -f)
+CLAUDE.local.md

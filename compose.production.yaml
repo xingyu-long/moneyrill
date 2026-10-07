@@ -1,0 +1,62 @@
+# INSTANCE_NAME (default moneyrill) names the project, its volume and the database user: see scripts/instance.sh.
+name: ${INSTANCE_NAME:-moneyrill}-production
+services:
+  db:
+    restart: unless-stopped
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${INSTANCE_NAME:-moneyrill}
+      POSTGRES_USER: ${INSTANCE_NAME:-moneyrill}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a production database password}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      retries: 20
+  app:
+    restart: unless-stopped
+    image: ${APP_IMAGE:?Set APP_IMAGE to a tested staging image}
+    ports: ['127.0.0.1:3003:3002']
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
+      APP_ENV: production
+      PLAID_ENV: production
+      PUBLIC_ORIGIN: http://localhost:3003
+      KEY_FILE: /run/secrets/token_key
+      PORT: 3002
+      ALLOW_LAN: ${ALLOW_LAN:-false}
+    secrets: [token_key]
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://localhost:3002/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      retries: 10
+  worker:
+    restart: unless-stopped
+    image: ${APP_IMAGE:?Set APP_IMAGE to a tested staging image}
+    pull_policy: never
+    command: [npm, run, worker]
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
+      APP_ENV: production
+      PLAID_ENV: production
+      PUBLIC_ORIGIN: http://localhost:3003
+      KEY_FILE: /run/secrets/token_key
+    secrets: [token_key]
+    depends_on:
+      app: { condition: service_healthy }
+volumes:
+  database:
+secrets:
+  token_key:
+    file: ./secrets/production.key

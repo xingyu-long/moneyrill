@@ -1,0 +1,4 @@
+# Added by deploy.sh when BIND_ADDRESS in .env is a private LAN address.
+services:
+  app:
+    ports: ['${BIND_ADDRESS}:3002:3002']

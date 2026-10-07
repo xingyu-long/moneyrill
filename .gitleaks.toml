@@ -1,0 +1,8 @@
+# gitleaks settings (CI job "Secret scan" and ./scripts/scan-secrets.sh). The default rules, plus known false positives.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Category keys such as 401k_contribution look like API keys to the generic rule"
+regexTarget = "line"
+regexes = ['''["']?key["']?\s*[:=]\s*["']401k_contribution["']''']
