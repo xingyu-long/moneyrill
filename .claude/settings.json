@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(./scripts/deploy.sh *)",
+      "Bash(./scripts/rollback.sh *)",
+      "Bash(./scripts/restore-check.sh *)",
+      "Bash(./scripts/ship.sh --promote-only *)",
+      "Bash(./scripts/merge-pr.sh *)"
+    ],
+    "deny": ["Read(./.env.production)", "Read(./secrets/**)", "Read(./backups/**)"]
+  }
+}

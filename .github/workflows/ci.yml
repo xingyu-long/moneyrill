@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to a pull request cancels that pull request's older run (so pushes and re-runs do not queue up
+# behind each other); runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Normally 2-3 minutes: a runner that hangs fails in 10 instead of holding the pull request for 15 or more.
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: moneyrill
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: moneyrill
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U moneyrill" --health-interval 5s --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Format, lint, typecheck, unit and UI tests
+        run: npm run check
+      - name: Build
+        run: npm run build
+      - name: Migrations on an empty database
+        env:
+          DATABASE_URL: postgres://moneyrill:ci-only@localhost:5432/migtest
+        run: |
+          psql -h localhost -U moneyrill -d moneyrill -c 'CREATE DATABASE migtest'
+          npx tsx tests/migrations-db.ts
+      - name: API integration test (disposable database)
+        env:
+          DATABASE_URL: postgres://moneyrill:ci-only@localhost:5432/moneyrill
+          APP_ENV: staging
+          PLAID_ENV: sandbox
+        run: |
+          npm start > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3002/api/health >/dev/null && break; sleep 1; done
+          npm run test:integration
+      - name: Show server log on failure
+        if: failure()
+        run: tail -n 50 server.log || true
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz
+          tar -xzf gitleaks.tgz gitleaks
+      # Every file of this commit, and on a pull request every commit it adds (a secret added and removed again counts).
+      - name: Files
+        run: ./gitleaks dir . --redact --no-banner --config .gitleaks.toml
+      - name: Commits of this pull request
+        if: github.event_name == 'pull_request'
+        run: ./gitleaks git . --redact --no-banner --config .gitleaks.toml --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"

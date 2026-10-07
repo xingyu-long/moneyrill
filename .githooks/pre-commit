@@ -1,0 +1,12 @@
+#!/bin/sh
+# Runs format check, lint, typecheck and all tests before each commit, and keeps main clean:
+# changes go through a branch and pull request (see CONTRIBUTING.md).
+# Enabled by `npm install` (see the "prepare" script). Skip in an emergency: git commit --no-verify
+set -e
+cd "$(git rev-parse --show-toplevel)"
+if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] && [ "${ALLOW_MAIN_COMMIT:-}" != "1" ]; then
+  echo "Do not commit on main. Start a branch:  ./scripts/branch.sh short-name" >&2
+  echo "(If you already made changes: git switch -c feature/short-name, then commit there.)" >&2
+  exit 1
+fi
+npm run check --silent

@@ -1,0 +1,152 @@
+# Running Moneyrill
+
+Environments, configuration, sign-in, backups and releases. For an overview and the quick start, see the [README](../../README.md).
+
+**Installation name.** `INSTANCE_NAME` in `.env` and `.env.production` (default `moneyrill`) names the Docker Compose projects (`<name>-staging`, `<name>-production`), their database volumes, the PostgreSQL user and database, and the backup job's launchd label (`com.<name>.backup`). Choose it once: changing it later points the installation at a new, empty database (the old one stays in its volume), so `deploy.sh` refuses when the computer already has a database volume under another name.
+
+## Separate environments
+
+|                 | Staging                                              | Production                                 |
+| --------------- | ---------------------------------------------------- | ------------------------------------------ |
+| URL             | http://localhost:3002                                | http://localhost:3003                      |
+| Compose project | `<name>-staging` (moneyrill-staging)                 | `<name>-production`                        |
+| Configuration   | .env                                                 | .env.production                            |
+| Plaid           | Sandbox                                              | Production                                 |
+| Encryption key  | secrets/token.key                                    | secrets/production.key                     |
+| Database volume | `<name>-staging_database`                            | `<name>-production_database`               |
+| Initial data    | Simulated history, optional fake Sandbox connections | Empty; real connected/manual accounts only |
+
+Both may run simultaneously. Production has a single account view with no dataset dropdown or sample generator. Staging lets you choose demo history or connected/manual test accounts. Production has no synthetic benchmarks; it compares against real S&P 500 (SPY) and Nasdaq-100 (QQQ) history.
+
+A database stores its environment identity. Pointing a production app at a staging database (or vice versa) fails before startup. Production rejects Sandbox tokens, sample-generation requests and staging archives, including mislabeled archives containing simulated records. No environment copies data into the other. The database port is not exposed; the app is bound to loopback for a local single-user deployment.
+
+## First setup
+
+```sh
+./scripts/setup.sh staging
+# Optional: put Sandbox PLAID_CLIENT_ID and PLAID_SECRET in .env.
+./scripts/deploy.sh staging
+```
+
+For production:
+
+```sh
+./scripts/setup.sh production
+# Put Production PLAID_CLIENT_ID and PLAID_SECRET in .env.production.
+```
+
+Setup generates a separate database password and key without replacing existing files. Preserve the password/key when reusing the database volume. Never put Production credentials in `.env` or commit credentials. `.env.example` and `.env.production.example` are the safe templates.
+
+## Which version is running?
+
+Each image carries the git commit and build time it was made from (set by `deploy.sh` through Docker build arguments). They show in the footer (`v c4ad6c8 · built Oct 3, 5:34 PM`), on the sign-in page, and in `GET /api/health` (`version.commit`). `ship.sh` checks that each environment reports the commit it just deployed. Staging has an amber top strip, badge and a `STAGING` tab title; production is green.
+
+## Reaching the app from another device (same Wi-Fi)
+
+Off by default. Add to `.env.production` (or `.env` for staging), then redeploy:
+
+```sh
+BIND_ADDRESS=192.168.1.20   # this computer's Wi-Fi address (not 0.0.0.0)
+ALLOW_LAN=true
+```
+
+Open `http://<this-computer's-LAN-IP>:3003` (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. Sign-in is always required, so nothing under `/api` answers without a session, and until a passphrase exists the sign-in page offers to create one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
+
+## Sign-in (passphrase)
+
+One passphrase for one person, no accounts, and no scripts: everything is in the browser.
+
+- **First run.** Staging and production each start with no passphrase: opening the app shows **Create a passphrase** (12+ characters, typed twice) and signs you in. **Create it right after the first deploy**: until one exists, whoever opens the page first (on your Wi-Fi too, with `ALLOW_LAN`) can choose it. Once a passphrase exists, setup is closed and the page only ever asks for it. Staging and production have separate passphrases.
+- **Change it** in **Settings → Sign-in**: current passphrase, new one, repeat. Every other device is signed out; you stay signed in.
+- **Forgot it?** The browser cannot recover it. On the computer running the app, delete the stored passphrase and every session (use `staging` for staging), then reload: the page offers **Create a passphrase** again.
+
+```sh
+docker exec -i <instance>-production-db-1 sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+DELETE FROM settings WHERE key = 'auth_passphrase';
+DELETE FROM sessions;
+SQL
+```
+
+`<instance>` is `INSTANCE_NAME` from `.env.production` (`moneyrill` unless you set it). Until a new passphrase is created in the browser, nothing is accessible.
+
+- Stored as a salted scrypt hash; the browser gets a random session token in an `HttpOnly`, `SameSite=Strict` cookie (30 days). Only a hash of the token is kept in the database.
+- Five wrong attempts (sign-in, or a wrong current passphrase when changing it) from the same address lock sign-in from that address for 15 minutes; other addresses are not affected (restart the app container to clear it). Behind a reverse proxy set `TRUST_PROXY=true` so each client counts separately.
+- Changing the passphrase signs every other device out. **Sign out** is in the top bar.
+- Every response carries a Content-Security-Policy (scripts only from the app itself, one hashed inline script and Plaid Link), `X-Frame-Options: DENY`, `nosniff` and no referrer. The container runs as an unprivileged user.
+- Over plain `http://` on Wi-Fi the passphrase is not encrypted in transit, so treat the network as trusted. HTTPS (Tailscale `serve` or a local certificate) is in TODO.md.
+
+## Backups and database access
+
+```sh
+./scripts/backup.sh production        # encrypted, verified, keeps newest 14 (BACKUP_KEEP)
+./scripts/restore-check.sh production # restores newest backup into a throwaway DB and compares counts
+./scripts/install-daily-backup.sh     # macOS launchd job, daily 02:30 (see note below)
+```
+
+Backups are AES-256 encrypted with `secrets/backup.key` and stored in `backups/encrypted/`. Each one is decrypted and checked as a valid PostgreSQL archive before it is kept. Keep copies of `secrets/backup.key` and `secrets/production.key` in a separate secure place; neither is in the database backup.
+
+**Linux:** `install-daily-backup.sh` is macOS-only (launchd). Use cron instead, for example `30 2 * * * cd /path/to/moneyrill && ./scripts/backup.sh production >> backups/backup.log 2>&1`. A key file mounted into the container must be readable by uid 1000 (the `node` user): `chmod 644 secrets/*.key` is acceptable on a single-user machine, or `chown 1000 secrets/*.key`.
+
+**macOS note:** launchd cannot read project files under `~/Documents` or `~/Desktop` without Full Disk Access (the job exits with "Operation not permitted"). Either grant it to `/bin/sh`, or keep the project outside those folders, then run `launchctl kickstart gui/$(id -u)/com.<name>.backup` and check `backups/backup.log`.
+
+Back up the matching token key and configuration separately. A database backup alone cannot decrypt connections. Backup files and exported financial archives are not encrypted automatically. Normal `docker compose down` preserves volumes; do not use `down -v` on data you want to keep.
+
+Open PostgreSQL:
+
+```sh
+# Staging
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+# Production
+APP_IMAGE="$(cat .releases/production-image)" docker compose --env-file .env.production -f compose.production.yaml exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Inside psql: `\dt` lists tables, `\d accounts` shows columns, `\q` exits. To inspect a backup safely, use `createdb` and `pg_restore --no-owner` into a separate database, verify it, then deliberately change DATABASE_URL to that database. Keep the original until recovery is verified.
+
+Settings offers a portable versioned JSON archive and account CSV; Investments exports holdings CSV. Archives exclude connection credentials. Re-imports are deduplicated by source IDs/dates. Generic bank/Monarch CSV mapping is not included.
+
+## Migration rehearsal
+
+`./scripts/deploy.sh production IMAGE` first runs `./scripts/rehearse-migrations.sh IMAGE`: it takes a fresh encrypted backup, restores it into a throwaway database, applies the image's pending migrations there, and checks that every table keeps its row count, the overview still loads and the latest net worth is reproduced. Production itself is only read. If anything fails, the deploy stops.
+
+```sh
+./scripts/rehearse-migrations.sh                          # candidate = the image on staging
+./scripts/rehearse-migrations.sh IMAGE --migrations DIR   # try a migrations folder before building an image
+SKIP_REHEARSAL=1 ./scripts/deploy.sh production IMAGE     # emergency only: backup, no rehearsal
+```
+
+A migration that intentionally changes row counts (for example a cleanup) will fail the rehearsal on purpose; review it, and if it is correct update `tests/rehearsal-check.ts` for that release.
+
+## Workflow: branch → pull request → release
+
+All changes go through a branch and a pull request; `main` only receives merged pull requests that passed the local gate (and CI), and production only runs what was merged. The full steps are in [CONTRIBUTING.md](../../CONTRIBUTING.md):
+
+```sh
+./scripts/branch.sh name              # start from the latest main
+./scripts/ship.sh --stage-only        # try it on staging (works on a pushed branch)
+./scripts/pr.sh "Title"               # push + open the pull request
+./scripts/merge-pr.sh 12              # squash-merge a commit that passed ship.sh --stage-only (--wait: wait for CI), back to updated main
+./scripts/ship.sh --stage-only        # on main: stage what was merged
+./scripts/ship.sh --promote-only      # release to production (you type "promote")
+```
+
+Hooks enforce it locally (no commits or pushes on `main`); GitHub branch protection enforces it remotely when the plan allows (`python3 scripts/gh.py protection`).
+
+## Releasing: `./scripts/ship.sh`
+
+```sh
+./scripts/ship.sh                 # checks -> staging -> smoke test -> asks -> production -> smoke test
+./scripts/ship.sh --stage-only    # stop at staging so you can try it at http://localhost:3002
+./scripts/ship.sh --promote-only  # then promote exactly what you tried
+./scripts/ship.sh --yes           # skip the confirmation (automation)
+```
+
+It stops at the first failure and never touches production before staging passed:
+
+1. The working tree must be clean. Production releases come from `main` with nothing that skipped a pull request; on a pushed feature branch only `--stage-only` is allowed.
+2. `npm run check` (format, lint, types, unit and UI tests).
+3. Deploys that commit to staging as a tagged image, then smoke-tests it (`tests/smoke.ts`: health and mode, sign-in status, data blocked without a session, web page and bundle served, foreign Host and Origin refused).
+4. Shows what will change in production (commits since the running version, new database migrations) and asks you to type `promote`; anything else cancels without touching production.
+5. `deploy.sh production`: backup, migration rehearsal on a copy of real data, then the same image.
+6. Smoke-tests production. If it fails you are told to run `./scripts/rollback.sh`.
+
+Every step is logged in `.releases/history.log`. The individual commands (`deploy.sh staging`, `deploy.sh production IMAGE`) still work. `tests/smoke.ts` can also be run alone: `npx tsx tests/smoke.ts http://localhost:3003 production`.
