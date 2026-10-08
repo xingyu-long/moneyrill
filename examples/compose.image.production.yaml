@@ -28,7 +28,7 @@ services:
   app:
     restart: unless-stopped
     image: ghcr.io/xingyu-long/moneyrill:${MONEYRILL_VERSION:?Set MONEYRILL_VERSION to a released version, e.g. 0.1.0}
-    ports: ['127.0.0.1:3003:3002'] # loopback only: do not publish this to the internet or port-forward it
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:3003:3002'] # loopback unless BIND_ADDRESS is set to a private LAN address; never 0.0.0.0
     env_file: .env.production
     environment:
       DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
@@ -37,6 +37,7 @@ services:
       PUBLIC_ORIGIN: http://localhost:3003
       KEY_FILE: /run/secrets/token_key
       PORT: 3002
+      ALLOW_LAN: ${ALLOW_LAN:-false}
     secrets: [token_key]
     depends_on:
       db: { condition: service_healthy }
