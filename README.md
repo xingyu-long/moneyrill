@@ -56,6 +56,8 @@ open http://localhost:3002       # Linux: xdg-open
 
 You get simulated accounts, holdings, transactions and reports to explore. `docker compose down` stops it; add `-v` to delete the demo data.
 
+Prefer not to build? Run the published image with [`examples/compose.image.yaml`](examples/compose.image.yaml) ([how](docs/development/OPERATIONS.md#run-the-published-image)).
+
 ## Connect real accounts
 
 - Moneyrill runs no service for you, so you need your own [Plaid](https://plaid.com) keys. Sandbox keys (fake banks) are free; real banks need Plaid Production access, and its free trial allows only a limited number of connections.

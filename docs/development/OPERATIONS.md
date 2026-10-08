@@ -37,6 +37,20 @@ For production:
 
 Setup generates a separate database password and key without replacing existing files. Preserve the password/key when reusing the database volume. Never put Production credentials in `.env` or commit credentials. `.env.example` and `.env.production.example` are the safe templates.
 
+## Run the published image
+
+Each release tag (`v0.1.0`) publishes an image to `ghcr.io/xingyu-long/moneyrill` (tags `0.1.0` and `0.1`). To try Moneyrill without cloning the source, use [`examples/compose.image.yaml`](../../examples/compose.image.yaml): it starts the app, the worker and PostgreSQL from that image with the demo setup (simulated data, Plaid Sandbox, loopback only).
+
+```sh
+mkdir moneyrill && cd moneyrill
+curl -O https://raw.githubusercontent.com/xingyu-long/moneyrill/main/examples/compose.image.yaml
+openssl rand -hex 32 > token.key && chmod 600 token.key       # keep it: it encrypts the bank tokens
+MONEYRILL_VERSION=0.1.0 docker compose -f compose.image.yaml up -d
+open http://localhost:3002                                    # Linux: xdg-open
+```
+
+Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run `up -d` again (migrations are additive and run on start; take a backup first). Sandbox keys go in `PLAID_CLIENT_ID` and `PLAID_SECRET` in the environment or a `.env` file next to the compose file. `docker compose -f compose.image.yaml down` stops it; add `-v` to delete the data. The example is for trying the app. For real accounts use the production setup above, which adds a database password, backups, the migration rehearsal and rollback.
+
 ## Which version is running?
 
 Each image carries the git commit and build time it was made from (set by `deploy.sh` through Docker build arguments). They show in the footer (`v c4ad6c8 · built Oct 3, 5:34 PM`), on the sign-in page, and in `GET /api/health` (`version.commit`). `ship.sh` checks that each environment reports the commit it just deployed. Staging has an amber top strip, badge and a `STAGING` tab title; production is green.
