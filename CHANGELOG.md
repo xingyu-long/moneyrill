@@ -8,6 +8,7 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 - **Configurable ports**: `STAGING_PORT` (default 3002) and `PRODUCTION_PORT` (default 3003) set the port each environment is published on, in `.env` or, to override it, `.env.production`. The compose files, `deploy.sh`, `ship.sh` (smoke tests) and `rollback.sh` follow them, `PUBLIC_ORIGIN` matches, and `deploy.sh` refuses the same port for both. Defaults are unchanged.
 - **An example for the published image**: `examples/compose.image.yaml` runs the app, worker and PostgreSQL from `ghcr.io/xingyu-long/moneyrill` without cloning or building (demo setup); documented in Running Moneyrill.
+- **An example for the published image**: `examples/compose.image.yaml` runs the app, worker and PostgreSQL from `ghcr.io/xingyu-long/moneyrill` without cloning or building (demo setup), and `examples/compose.image.production.yaml` does the same for real accounts; documented in Running Moneyrill.
 
 ### Changed
 

@@ -49,7 +49,32 @@ MONEYRILL_VERSION=0.1.0 docker compose -f compose.image.yaml up -d
 open http://localhost:3002                                    # Linux: xdg-open
 ```
 
-Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run `up -d` again (migrations are additive and run on start; take a backup first). Sandbox keys go in `PLAID_CLIENT_ID` and `PLAID_SECRET` in the environment or a `.env` file next to the compose file. `docker compose -f compose.image.yaml down` stops it; add `-v` to delete the data. The example is for trying the app. For real accounts use the production setup above, which adds a database password, backups, the migration rehearsal and rollback.
+Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run `up -d` again (migrations are additive and run on start; take a backup first). Sandbox keys go in `PLAID_CLIENT_ID` and `PLAID_SECRET` in the environment or a `.env` file next to the compose file. `docker compose -f compose.image.yaml down` stops it; add `-v` to delete the data.
+
+### With real accounts
+
+[`examples/compose.image.production.yaml`](../../examples/compose.image.production.yaml) is the same stack for real data: production mode, Plaid Production, a required database password and its own key, on http://localhost:3003 (loopback only). Use a separate folder, and never reuse the demo's volume.
+
+```sh
+mkdir moneyrill-production && cd moneyrill-production
+curl -O https://raw.githubusercontent.com/xingyu-long/moneyrill/main/examples/compose.image.production.yaml
+openssl rand -hex 32 > production.key && chmod 600 production.key
+umask 077 && cat > .env.production <<ENV
+PLAID_CLIENT_ID=<your Production client id>
+PLAID_SECRET=<your Production secret>
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+ENV
+MONEYRILL_VERSION=0.1.0 docker compose --env-file .env.production -f compose.image.production.yaml up -d
+```
+
+Then set the sign-in passphrase (typed hidden, never saved to a file or shell history):
+
+```sh
+stty -echo; printf 'Passphrase (12+ characters): '; read -r p; stty echo; printf '\n'
+printf '%s' "$p" | docker compose --env-file .env.production -f compose.image.production.yaml exec -T app ./node_modules/.bin/tsx server/set-passphrase.ts; unset p
+```
+
+Keep `.env.production` and `production.key` private and back them up with your database: the key decrypts the bank tokens, and the password belongs to the existing volume. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: before upgrading, take a backup (`docker compose ... exec -T db pg_dump -U moneyrill moneyrill > backup.sql`, then encrypt and store it), and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout as described above. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
 
 ## Which version is running?
 

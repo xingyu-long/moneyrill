@@ -1,0 +1,70 @@
+# Run Moneyrill with REAL accounts from the published container image, without cloning or building.
+# See "Run the published image" in docs/development/OPERATIONS.md. For trying the app first, use compose.image.yaml.
+#
+#   openssl rand -hex 32 > production.key && chmod 600 production.key
+#   Create .env.production (see OPERATIONS.md) with PLAID_CLIENT_ID, PLAID_SECRET and POSTGRES_PASSWORD.
+#   MONEYRILL_VERSION=0.1.0 docker compose --env-file .env.production -f compose.image.production.yaml up -d
+#   open http://localhost:3003
+#
+# Back up production.key and .env.production together with your database backups: the key encrypts the bank
+# tokens, and the database password cannot be changed by editing the file once the volume exists.
+# Use this with its own folder and volume: never point it at a database that holds demo data.
+name: moneyrill-image-production
+services:
+  db:
+    restart: unless-stopped
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: moneyrill
+      POSTGRES_USER: moneyrill
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production (openssl rand -hex 24)}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      retries: 20
+  app:
+    restart: unless-stopped
+    image: ghcr.io/xingyu-long/moneyrill:${MONEYRILL_VERSION:?Set MONEYRILL_VERSION to a released version, e.g. 0.1.0}
+    ports: ['127.0.0.1:3003:3002'] # loopback only: do not publish this to the internet or port-forward it
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgres://moneyrill:${POSTGRES_PASSWORD}@db:5432/moneyrill
+      APP_ENV: production
+      PLAID_ENV: production
+      PUBLIC_ORIGIN: http://localhost:3003
+      KEY_FILE: /run/secrets/token_key
+      PORT: 3002
+    secrets: [token_key]
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://localhost:3002/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      retries: 10
+  worker:
+    restart: unless-stopped
+    image: ghcr.io/xingyu-long/moneyrill:${MONEYRILL_VERSION:?Set MONEYRILL_VERSION to a released version, e.g. 0.1.0}
+    command: [npm, run, worker]
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgres://moneyrill:${POSTGRES_PASSWORD}@db:5432/moneyrill
+      APP_ENV: production
+      PLAID_ENV: production
+      PUBLIC_ORIGIN: http://localhost:3003
+      KEY_FILE: /run/secrets/token_key
+    secrets: [token_key]
+    depends_on:
+      app: { condition: service_healthy }
+volumes:
+  database:
+secrets:
+  token_key:
+    file: ./production.key
