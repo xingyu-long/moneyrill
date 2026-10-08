@@ -8,15 +8,16 @@
 #
 # Back up production.key and .env.production together with your database backups: the key encrypts the bank
 # tokens, and the database password cannot be changed by editing the file once the volume exists.
-# Use this with its own folder and volume: never point it at a database that holds demo data.
-name: moneyrill-image-production
+# INSTANCE_NAME (in .env.production, default moneyrill) names the project, volume, database and user, as in the
+# source checkout: set it to the name your database already has to keep using it. Never point this at demo data.
+name: ${INSTANCE_NAME:-moneyrill}-production
 services:
   db:
     restart: unless-stopped
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: moneyrill
-      POSTGRES_USER: moneyrill
+      POSTGRES_DB: ${INSTANCE_NAME:-moneyrill}
+      POSTGRES_USER: ${INSTANCE_NAME:-moneyrill}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production (openssl rand -hex 24)}
     volumes:
       - database:/var/lib/postgresql/data
@@ -30,7 +31,7 @@ services:
     ports: ['127.0.0.1:3003:3002'] # loopback only: do not publish this to the internet or port-forward it
     env_file: .env.production
     environment:
-      DATABASE_URL: postgres://moneyrill:${POSTGRES_PASSWORD}@db:5432/moneyrill
+      DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
       APP_ENV: production
       PLAID_ENV: production
       PUBLIC_ORIGIN: http://localhost:3003
@@ -55,7 +56,7 @@ services:
     command: [npm, run, worker]
     env_file: .env.production
     environment:
-      DATABASE_URL: postgres://moneyrill:${POSTGRES_PASSWORD}@db:5432/moneyrill
+      DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
       APP_ENV: production
       PLAID_ENV: production
       PUBLIC_ORIGIN: http://localhost:3003

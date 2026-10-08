@@ -76,6 +76,18 @@ printf '%s' "$p" | docker compose --env-file .env.production -f compose.image.pr
 
 Keep `.env.production` and `production.key` private and back them up with your database: the key decrypts the bank tokens, and the password belongs to the existing volume. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: before upgrading, take a backup (`docker compose ... exec -T db pg_dump -U moneyrill moneyrill > backup.sql`, then encrypt and store it), and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout as described above. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
 
+### Moving an existing source installation to the image
+
+The data stays in its Docker volume, so switching only changes what runs on it. Use the same `INSTANCE_NAME`, database password and key, and the example will reuse the volume `<name>-production_database`.
+
+1. Back up first (`./scripts/backup.sh production`) and keep the backup.
+2. In a new folder, copy `.env.production` (it holds `INSTANCE_NAME`, `POSTGRES_PASSWORD` and the Plaid keys) and `secrets/production.key` (as `production.key`) from the checkout, and download the example.
+3. Stop the old stack without deleting data: `docker compose -p <name>-production down` (never `-v`).
+4. Start the image: `MONEYRILL_VERSION=… docker compose --env-file .env.production -f compose.image.production.yaml up -d`. Migrations run on start; the passphrase and all data are unchanged.
+5. To go back, stop it the same way and run `./scripts/deploy.sh production IMAGE` from the checkout with the image it recorded.
+
+After the switch the checkout's `deploy.sh`, `ship.sh --promote-only`, `rollback.sh` and the daily backup job no longer match what is running, so back up with `pg_dump` as above, or keep deploying production from the source checkout instead.
+
 ## Which version is running?
 
 Each image carries the git commit and build time it was made from (set by `deploy.sh` through Docker build arguments). They show in the footer (`v c4ad6c8 · built Oct 3, 5:34 PM`), on the sign-in page, and in `GET /api/health` (`version.commit`). `ship.sh` checks that each environment reports the commit it just deployed. Staging has an amber top strip, badge and a `STAGING` tab title; production is green.
