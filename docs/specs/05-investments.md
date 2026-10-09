@@ -113,7 +113,7 @@ rows not counted, a refund reducing spending. Amounts carry the provider sign, s
 It answers `{flows: [{date, amount}], from, auto_from, override}`.
 
 - **`from`** (cash flows are counted from this day, the return never starts earlier, because before it deposits would
-  read as growth): `override` if the owner chose one, else `auto_from` = the first day of the month after the
+  read as growth): `override` if the owner chose one, else `auto_from` = the first day of the month of the
   earliest non-pending, non-removed USD transaction (own date, else the bank's) on an included `cash` account.
 - With no bank transactions at all there is no automatic day, and the span opens at the first balance.
 - `PUT /api/investments/cash-flows-from` `{date}` (real `YYYY-MM-DD`, not in the future) saves it in
@@ -169,7 +169,7 @@ Mockups: [`docs/design/zen/`](../design/zen/) (Investments). The content is the 
 - Unreported value: measured against the bank's own values, not the priced balance; hidden under 0.05
   (`tests/holdings.test.ts`).
 - Cash flows (integration): income minus spending on included accounts, transfers and pending rows left out, a refund
-  reducing spending, an excluded account ignored; `from` is the override or the first of the month after the earliest
+  reducing spending, an excluded account ignored; `from` is the override or the first of the month of the earliest
   bank transaction; a future date is refused.
 - UI (`tests/ui/investments.test.tsx`, `tests/ui/return.test.tsx`, `tests/ui/private.test.tsx`): the value card with
   return, gain, contributed and the counted-from line (plain, and cut by the cash-flow start); "value change" when only some accounts are selected or flows are unavailable; account

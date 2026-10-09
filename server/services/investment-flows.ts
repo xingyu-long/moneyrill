@@ -24,11 +24,10 @@ export async function cashFlowDays() {
     )
   ).rows as CashFlowDay[];
   // Income lands in the bank accounts, so their transactions are what show the cash flow is being recorded. The
-  // first month is usually only partly there (a provider returns history from the middle of a month), so the
-  // automatic start is the first day of the month after the earliest one.
+  // automatic start is the first day of the month of the earliest one, so that month's flows are all counted.
   const auto = (
     await pool.query(
-      `SELECT (date_trunc('month', min(coalesce(t.user_date, t.date))) + interval '1 month')::date::text AS day
+      `SELECT date_trunc('month', min(coalesce(t.user_date, t.date)))::date::text AS day
        FROM transactions t JOIN accounts a ON a.id=t.account_id AND a.included AND a.kind='cash'
        WHERE t.removed_at IS NULL AND NOT t.pending AND t.currency='USD'`,
     )
