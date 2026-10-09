@@ -1539,7 +1539,7 @@ assert.equal(crossSiteEdit.status, 403);
   // Nothing is stored: editing a transaction changes the next answer. Recategorise the rent as a transfer.
   await pool.query("UPDATE transactions SET auto_category_key='transfer' WHERE id='flow-rent'");
   assert.deepEqual((await read())[1], ['2031-01-06', 50]);
-  // The day cash flows are counted from: the first full month after the earliest bank transaction.
+  // The day cash flows are counted from: the first day of the month of the earliest bank transaction.
   await pool.query(
     "INSERT INTO accounts(id,name,institution,kind,currency,source,included) VALUES('flow:early','flow:early','Test','cash','USD','simulated',true)",
   );
@@ -1547,8 +1547,19 @@ assert.equal(crossSiteEdit.status, 403);
   const info = async () => (await request('/investments/cash-flows')).data;
   assert.deepEqual(
     [(await info()).auto_from, (await info()).from, (await info()).override],
-    ['2000-04-01', '2000-04-01', null],
+    ['2000-03-01', '2000-03-01', null],
   );
+  // The start is the first day of the month the earliest transaction is in, whatever its day.
+  await addFlow('earliest-first', 'flow:early', '2000-03-01', 10, 'groceries');
+  assert.deepEqual([(await info()).auto_from, (await info()).from], ['2000-03-01', '2000-03-01']);
+  await pool.query("DELETE FROM transactions WHERE id='flow-earliest-first'");
+  assert.equal((await info()).auto_from, '2000-03-01');
+  // Once the earliest transaction is gone the next one decides: a 15 April one starts on 1 April.
+  await addFlow('earliest-april', 'flow:early', '2000-04-15', 10, 'groceries');
+  await pool.query("DELETE FROM transactions WHERE id='flow-earliest'");
+  assert.equal((await info()).auto_from, '2000-04-01');
+  await pool.query("DELETE FROM transactions WHERE id='flow-earliest-april'");
+  await addFlow('earliest', 'flow:early', '2000-03-15', 10, 'groceries');
   // A date you choose wins, and going back to automatic removes it. Bad dates are refused.
   assert.equal(
     (await request('/investments/cash-flows-from', { date: '2026-01-01' }, 'PUT')).status,
@@ -1556,7 +1567,7 @@ assert.equal(crossSiteEdit.status, 403);
   );
   assert.deepEqual(
     [(await info()).auto_from, (await info()).from, (await info()).override],
-    ['2000-04-01', '2026-01-01', '2026-01-01'],
+    ['2000-03-01', '2026-01-01', '2026-01-01'],
   );
   const dayFromNow = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   // A day in the future leaves no span to calculate, so it is refused; today and tomorrow (time zones) are fine.
@@ -1577,7 +1588,7 @@ assert.equal(crossSiteEdit.status, 403);
       JSON.stringify(bad),
     );
   assert.equal((await request('/investments/cash-flows-from', { date: null }, 'PUT')).status, 200);
-  assert.equal((await info()).from, '2000-04-01');
+  assert.equal((await info()).from, '2000-03-01');
   await pool.query("DELETE FROM accounts WHERE id LIKE 'flow:%'");
 }
 // Reconnect with an account un-selected: it is excluded once, kept, and restored if it comes back.
