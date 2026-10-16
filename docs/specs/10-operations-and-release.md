@@ -14,7 +14,7 @@ Two Compose projects on one computer, **never sharing a database, key, volume or
 
 |               | Staging                                            | Production                                         |
 | ------------- | -------------------------------------------------- | -------------------------------------------------- |
-| URL           | `http://localhost:3002`                            | `http://localhost:3003`                            |
+| URL           | `http://localhost:3002` (`STAGING_PORT`)           | `http://localhost:3003` (`PRODUCTION_PORT`)        |
 | Configuration | `.env` (from `.env.example`)                       | `.env.production` (from `.env.production.example`) |
 | Plaid         | Sandbox (fake banks)                               | Production (the owner's own keys)                  |
 | Token key     | `secrets/token.key`                                | `secrets/production.key`                           |

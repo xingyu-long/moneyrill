@@ -1,4 +1,4 @@
 # Added by deploy.sh when BIND_ADDRESS in .env.production is a private LAN address.
 services:
   app:
-    ports: ['${BIND_ADDRESS}:3003:3002']
+    ports: ['${BIND_ADDRESS}:${PRODUCTION_PORT:-3003}:3002']

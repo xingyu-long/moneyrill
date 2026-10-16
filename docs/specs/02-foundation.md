@@ -40,7 +40,7 @@ deployed and smoke-tested. Every later feature adds routes, tables and pages to 
    dependencies, `server/`, `dist/`, running as the unprivileged `node` user, `EXPOSE 3002`, `CMD npm start`).
    Compose files per environment (staging, production, and `lan` overrides) with the `db`, `app` and `worker`
    services, a health check on `/api/health`, the token key mounted as a Docker secret, and the app bound to
-   `127.0.0.1` only. Staging listens on 3002, production on 3003; they run side by side with separate databases,
+   `127.0.0.1` only. Staging is published on `STAGING_PORT` (default 3002), production on `PRODUCTION_PORT` (default 3003; each from its own env file, else `.env`, and `deploy.sh` refuses the same port for both; `PUBLIC_ORIGIN` follows it); they run side by side with separate databases,
    keys and volumes. `INSTANCE_NAME` (default `moneyrill`) names the Compose projects (`<name>-staging`, `<name>-production`), their volumes
    and the database user and name; `deploy.sh` refuses to start one under a new name when the computer already has
    another installation's database volume, because a changed name would point it at an empty database. The scripts that drive them are in

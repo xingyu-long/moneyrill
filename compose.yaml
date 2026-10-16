@@ -18,13 +18,13 @@ services:
     restart: unless-stopped
     build: .
     image: ${APP_IMAGE:-moneyrill-staging:local}
-    ports: ['127.0.0.1:3002:3002']
+    ports: ['127.0.0.1:${STAGING_PORT:-3002}:3002']
     env_file: .env
     environment:
       DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:local-staging-only@db:5432/${INSTANCE_NAME:-moneyrill}
       APP_ENV: staging
       PLAID_ENV: sandbox
-      PUBLIC_ORIGIN: http://localhost:3002
+      PUBLIC_ORIGIN: http://localhost:${STAGING_PORT:-3002}
       KEY_FILE: /run/secrets/token_key
       PORT: 3002
       ALLOW_LAN: ${ALLOW_LAN:-false}
@@ -51,7 +51,7 @@ services:
       DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:local-staging-only@db:5432/${INSTANCE_NAME:-moneyrill}
       APP_ENV: staging
       PLAID_ENV: sandbox
-      PUBLIC_ORIGIN: http://localhost:3002
+      PUBLIC_ORIGIN: http://localhost:${STAGING_PORT:-3002}
       KEY_FILE: /run/secrets/token_key
     secrets: [token_key]
     depends_on:

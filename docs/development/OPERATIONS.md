@@ -8,7 +8,7 @@ Environments, configuration, sign-in, backups and releases. For an overview and 
 
 |                 | Staging                                              | Production                                 |
 | --------------- | ---------------------------------------------------- | ------------------------------------------ |
-| URL             | http://localhost:3002                                | http://localhost:3003                      |
+| URL             | http://localhost:3002 (`STAGING_PORT`)               | http://localhost:3003 (`PRODUCTION_PORT`)  |
 | Compose project | `<name>-staging` (moneyrill-staging)                 | `<name>-production`                        |
 | Configuration   | .env                                                 | .env.production                            |
 | Plaid           | Sandbox                                              | Production                                 |
@@ -16,7 +16,7 @@ Environments, configuration, sign-in, backups and releases. For an overview and 
 | Database volume | `<name>-staging_database`                            | `<name>-production_database`               |
 | Initial data    | Simulated history, optional fake Sandbox connections | Empty; real connected/manual accounts only |
 
-Both may run simultaneously. Production has a single account view with no dataset dropdown or sample generator. Staging lets you choose demo history or connected/manual test accounts. Production has no synthetic benchmarks; it compares against real S&P 500 (SPY) and Nasdaq-100 (QQQ) history.
+Both may run simultaneously, each on its own port: `STAGING_PORT` (default 3002) and `PRODUCTION_PORT` (default 3003). Set either in `.env`, or in `.env.production` to override it; `deploy.sh` refuses the same port for both, and the app inside the container always listens on 3002. Production has a single account view with no dataset dropdown or sample generator. Staging lets you choose demo history or connected/manual test accounts. Production has no synthetic benchmarks; it compares against real S&P 500 (SPY) and Nasdaq-100 (QQQ) history.
 
 A database stores its environment identity. Pointing a production app at a staging database (or vice versa) fails before startup. Production rejects Sandbox tokens, sample-generation requests and staging archives, including mislabeled archives containing simulated records. No environment copies data into the other. The database port is not exposed; the app is bound to loopback for a local single-user deployment.
 
@@ -50,7 +50,7 @@ BIND_ADDRESS=192.168.1.20   # this computer's Wi-Fi address (not 0.0.0.0)
 ALLOW_LAN=true
 ```
 
-Open `http://<this-computer's-LAN-IP>:3003` (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. Sign-in is always required, so nothing under `/api` answers without a session, and until a passphrase exists the sign-in page offers to create one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
+Open `http://<this-computer's-LAN-IP>:3003` (your `PRODUCTION_PORT`) (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. Sign-in is always required, so nothing under `/api` answers without a session, and until a passphrase exists the sign-in page offers to create one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
 
 ## Sign-in (passphrase)
 
