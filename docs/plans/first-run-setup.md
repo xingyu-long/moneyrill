@@ -1,6 +1,6 @@
 # Passphrase in the UI: first-run setup and change in Settings
 
-Status: revised 2026-10-15. The owner wants **no scripts** for the passphrase. Everything happens in the browser. Commit
+Status: implemented on `feature/first-run-setup` (revised 2026-10-15). The owner wants **no scripts** for the passphrase. Everything happens in the browser. Commit
 `bbaddd7` on `feature/first-run-setup` built an earlier version of this plan, with a one-time setup code and
 `setup-code.sh`. This plan replaces that version. Rework that branch as described below; don't start again from main.
 

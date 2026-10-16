@@ -15,6 +15,7 @@ import { COLORS } from '../lib/format.ts';
 import { scheduleSentence } from '../lib/summary.ts';
 import { Words } from './Words.tsx';
 export { DisplayPage } from './DisplayPage.tsx';
+export { SignInPage } from './SignInPage.tsx';
 
 const SMALL = { size: 'sm' as const, variant: 'outline' as const };
 const small = 'h-7 px-2.5 text-[11px]';

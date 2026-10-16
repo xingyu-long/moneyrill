@@ -32,6 +32,7 @@ describe('Settings pages', () => {
       'Categories',
       'Sync settings & activity',
       'Display and navigation',
+      'Sign-in',
     ]);
     expect(pages().getByRole('link', { name: 'Connections' })).toHaveAttribute(
       'aria-current',

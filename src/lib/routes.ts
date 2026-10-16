@@ -59,6 +59,7 @@ export const SETTINGS_PAGES = [
   { slug: 'categories', label: 'Categories' },
   { slug: 'sync', label: 'Sync settings & activity' },
   { slug: 'display', label: 'Display and navigation' },
+  { slug: 'sign-in', label: 'Sign-in' },
 ] as const;
 export type SettingsSlug = (typeof SETTINGS_PAGES)[number]['slug'];
 export const settingsPath = (page?: SettingsSlug) => '/settings' + (page ? '/' + page : '');

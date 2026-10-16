@@ -34,7 +34,7 @@ Two Compose projects on one computer, **never sharing a database, key, volume or
 
 Idempotent and never replaces an existing file: creates `.env` / `.env.production` from the templates, a random 64-hex-character
 token key (`openssl rand -hex 32`, mode 600) and, for production, a separate database password. Secrets live in `secrets/`
-(never committed). `./scripts/set-passphrase.sh <env> [--clear]` changes or clears the sign-in passphrase on the host; `./scripts/setup-code.sh <env>` prints the one-time code for creating the first one in the browser, which `deploy.sh` also does for a LAN installation ([02](02-foundation.md#sign-in)).
+(never committed). The sign-in passphrase has no script: it is created on the sign-in page and changed in Settings → Sign-in ([02](02-foundation.md#sign-in)).
 
 ## The release path
 

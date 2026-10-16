@@ -15,11 +15,11 @@ export const createAccountBody = z.object({
   balance: requiredAmount,
 });
 
-/** POST /api/auth/setup: the first passphrase, and the one-time setup code where the app is open on the LAN. */
-export const setupBody = z.object({
-  passphrase: z.string(),
-  code: z.string().optional(),
-});
+/** POST /api/auth/setup: the first passphrase, chosen in the browser. */
+export const setupBody = z.object({ passphrase: z.string() });
+
+/** POST /api/auth/passphrase: change it from a signed-in browser. */
+export const changeBody = z.object({ current: z.string(), passphrase: z.string() });
 
 export const manualBalance = requiredAmount;
 

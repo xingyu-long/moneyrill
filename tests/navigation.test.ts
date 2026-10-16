@@ -51,8 +51,10 @@ test('Settings has a list page and sub-pages with their own addresses', () => {
   assert.equal(settingsPageOf('/settings'), null);
   assert.equal(settingsPageOf('/settings/categories'), 'categories');
   assert.equal(settingsPageOf('/Settings/Display'), 'display');
+  assert.equal(settingsPageOf('/settings/sign-in'), 'sign-in');
   assert.equal(settingsPageOf('/settings/nope'), null);
   assert.equal(settingsPageOf('/accounts/categories'), null);
   assert.equal(settingsPath(), '/settings');
   assert.equal(settingsPath('sync'), '/settings/sync');
+  assert.equal(settingsPath('sign-in'), '/settings/sign-in');
 });

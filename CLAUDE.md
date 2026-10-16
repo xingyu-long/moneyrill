@@ -55,8 +55,9 @@ this file where they differ.
 
 - **Production data is real.** Do not read, copy or print balances, holdings or tokens unless the task needs it, and then
   only the minimum. Never copy production data into staging. Staging is fake data + Plaid Sandbox only.
-- **Never ask for or handle the sign-in passphrase.** The maintainer sets it with `./scripts/set-passphrase.sh`. Use a random
-  throwaway passphrase only on staging for tests and clear it afterwards (`--clear`).
+- **Never ask for or handle the sign-in passphrase.** The maintainer creates and changes it in the app (sign-in page,
+  Settings → Sign-in). Use a random throwaway passphrase only on staging for tests, and remove it afterwards with the
+  recovery command in `docs/development/OPERATIONS.md` (Sign-in).
 - **Never commit secrets** (`.env*`, `secrets/`, `backups/`) or echo them. Tokens only travel through stdin/files, not arguments.
 - **Do not create new real Plaid Items** without being asked (a Plaid trial allows only a few, and deleting one does not
   give a slot back); use Reconnect.

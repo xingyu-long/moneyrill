@@ -109,33 +109,34 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
 ## Sign-in
 
 - **One passphrase**, at least 12 characters, normalized NFKC, stored as scrypt (`N=2^15, r=8, p=1`, 64-byte key,
-  random 16-byte salt) in `settings.auth_passphrase`. Changed or cleared only on the host with
-  `./scripts/set-passphrase.sh <staging|production> [--clear]` (typed hidden, never an argument or a file); changing or
-  clearing it deletes every session. The first one can also be created in the browser (see **First-run setup**); an
-  existing passphrase can never be replaced from the browser.
+  random 16-byte salt) in `settings.auth_passphrase`. There are no scripts for it: the first one is created on the
+  sign-in page and it is changed in **Settings → Sign-in** ([09](09-settings-navigation-and-private-mode.md)).
+  Changing it deletes every session except the new one for the browser that changed it. A forgotten passphrase is
+  recovered with one documented database command on the host (`docs/development/OPERATIONS.md`).
 - **Sessions.** A random 32-byte token (base64url) in the cookie `sw_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`,
   30 days, `Secure` when `X-Forwarded-Proto` is https). Only the SHA-256 of the token is stored in
   `sessions(token_hash, created_at, expires_at)`; expired rows are deleted whenever one is created.
 - **When sign-in is required:** when a passphrase exists, or always when `ALLOW_LAN` is on (before one exists the
   login page offers to create it). Otherwise the app is open on localhost.
-- **Endpoints:** `GET /api/auth/status` → `{required, configured, authenticated, setup, setupCode}`;
-  `POST /api/auth/login` `{passphrase}` → sets the cookie; `POST /api/auth/setup` `{passphrase, code?}` → creates the
-  first passphrase and sets the cookie; `POST /api/auth/logout` clears it. These and `/api/health` are open; everything
-  else under `/api` answers 401 `{error}` without a session when sign-in is required.
+- **Endpoints:** `GET /api/auth/status` → `{required, configured, authenticated, setup}` (`setup` = no passphrase yet);
+  `POST /api/auth/login` `{passphrase}` → sets the cookie; `POST /api/auth/setup` `{passphrase}` → creates the first
+  passphrase and sets the cookie; `POST /api/auth/passphrase` `{current, passphrase}` → changes it and sets a fresh
+  cookie; `POST /api/auth/logout` clears it. Status, login, setup, logout and `/api/health` are open; everything else
+  under `/api`, including the change, answers 401 `{error}` without a session when sign-in is required.
 - **First-run setup.** Only while no passphrase exists; afterwards `POST /api/auth/setup` answers 409 "A passphrase is
   already set" and changes nothing (the insert is atomic, so two racing setups cannot both win, and it deletes every
-  session and the setup code). `status.setup` is true when `ALLOW_LAN` is on and no passphrase exists (`setupCode`
-  likewise: the page must ask for the code). In that LAN mode the request needs the **one-time setup code**:
-  `XXXX-XXXX` from the alphabet without 0/O/1/I, case, spaces and dashes ignored, stored only as a SHA-256 in
-  `settings.auth_setup_code` with a 1-hour expiry, created by `./scripts/setup-code.sh <env>` (also run by
-  `deploy.sh` for a LAN installation) and deleted by a successful setup. Missing, expired or wrong code → 403 (a hint to
-  run the script, or "Incorrect setup code"); a wrong code counts like a wrong passphrase toward the lockout below. A
-  passphrase under 12 characters → 400 and the code stays valid. Without LAN mode no code is asked for (the app is
-  already open on localhost).
+  session). A passphrase under 12 characters → 400. It works the same with or without `ALLOW_LAN`: with LAN mode the
+  sign-in page offers it, without it the app is open on localhost and **Settings → Sign-in** offers it. **Accepted
+  trade-off:** with `ALLOW_LAN` and no passphrase yet, whoever opens the page first on the Wi-Fi chooses it, so create
+  it right after the first deploy.
+- **Changing it.** Needs a session and the current passphrase. A wrong current passphrase → 401 "Incorrect passphrase"
+  and counts toward the lockout below; a new one under 12 characters → 400 and nothing changes. On success every
+  session is deleted and the caller gets a new one, so other devices must sign in again.
 - **Brute force.** Failed attempts are counted per client address (`req.ip`); the fifth failure locks that address
   for 15 minutes (429, "Too many attempts. Try again in N minutes."); every failure waits 400 ms; at most 1,000
-  addresses are tracked, oldest forgotten first; a success clears the address. A wrong passphrase answers 401
-  "Incorrect passphrase"; no passphrase set answers 503 ("Open the app in a browser to create one.").
+  addresses are tracked, oldest forgotten first; a success clears the address. Sign-in and a wrong current passphrase
+  when changing share the count. A wrong passphrase answers 401 "Incorrect passphrase"; no passphrase set answers 503
+  ("Open the app in a browser to create one.").
 
 ## The page shell
 
@@ -159,11 +160,12 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
 - Sign-in: wrong passphrase 401 after the delay; five failures lock one address but not another; success sets a
   `HttpOnly` `SameSite=Strict` cookie; changing the passphrase invalidates sessions; with `ALLOW_LAN` and no
   passphrase everything but the open endpoints answers 401 (`tests/auth.test.ts`).
-- First-run setup: the right code stores the passphrase, signs in and uses the code up; a missing, wrong or expired
-  code is refused (403) and stores nothing; wrong codes count toward the per-address lockout; a short passphrase is
-  400 and keeps the code; setup with a passphrase present is 409 and neither replaces it nor signs anyone out; two
-  setups at once leave exactly one winner (also against the real table in `tests/integration.ts`); without LAN mode no
-  code is needed. The smoke test checks that setup answers 409 on an installation that has a passphrase.
+- First-run setup: it stores the passphrase and signs in; a short or missing one is 400 and stores nothing; with a
+  passphrase present it answers 409 and neither replaces it nor signs anyone out; two setups at once leave exactly one
+  winner (also against the real table in `tests/integration.ts`); it works with and without LAN mode.
+- Changing it: no session → 401; a wrong current passphrase → 401, counted toward the lockout shared with sign-in; a
+  short new one → 400 and the old one still works; on success the new one signs in and the old one does not, other
+  sessions are gone and the caller's new cookie works.
 - Against a running stack (`tests/smoke.ts URL MODE [COMMIT]`): health answers and reports the mode and commit, auth
   status is sane, data endpoints are blocked without a session, the page and bundle are served, a foreign Host and
   Origin are refused.

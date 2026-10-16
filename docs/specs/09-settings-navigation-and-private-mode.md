@@ -12,13 +12,13 @@ reload (Back, Forward, reload and bookmarks work; a modified click opens a new t
 `/api` with the app ([02](02-foundation.md#the-http-shell-serverappts)). **Addresses hold page names, dates and ids only,
 never amounts** (they end up in browser history). The same names are meant to be reused for deep links if an iOS app is built.
 
-| Address                                                                                                               | Page                                                                       |
-| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `/home` (also `/`)                                                                                                    | Home; an unknown first segment is replaced by `/home` (no extra Back step) |
-| `/accounts`, `/accounts/<id>`                                                                                         | Accounts; one account (id URL-encoded)                                     |
-| `/investments`, `/transactions`                                                                                       | those pages                                                                |
-| `/reports/cash-flow`, `/reports/spending`, `/reports/income`, `/reports/category/<id>`, `/reports/merchant/<name>`    | Reports ([07](07-reports.md#addresses))                                    |
-| `/settings`, `/settings/connections`, `/settings/data`, `/settings/categories`, `/settings/sync`, `/settings/display` | Settings                                                                   |
+| Address                                                                                                                                    | Page                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `/home` (also `/`)                                                                                                                         | Home; an unknown first segment is replaced by `/home` (no extra Back step) |
+| `/accounts`, `/accounts/<id>`                                                                                                              | Accounts; one account (id URL-encoded)                                     |
+| `/investments`, `/transactions`                                                                                                            | those pages                                                                |
+| `/reports/cash-flow`, `/reports/spending`, `/reports/income`, `/reports/category/<id>`, `/reports/merchant/<name>`                         | Reports ([07](07-reports.md#addresses))                                    |
+| `/settings`, `/settings/connections`, `/settings/data`, `/settings/categories`, `/settings/sync`, `/settings/display`, `/settings/sign-in` | Settings                                                                   |
 
 A tab is found by its lower-case name as the first segment (`TABS`: Home, Accounts, Investments, Transactions, Reports,
 Settings); a path that names no tab (and is not `/`) is replaced by `/home`. Opening **Reports** from the bar returns to the
@@ -51,7 +51,7 @@ Stored on this device under `moneyrill.tabbar`. The top bar on a computer always
 
 ## Settings (`/settings`)
 
-A list of five pages, each its own address. On a computer the list sits beside the page (a sticky 250px column; **Connections**
+A list of six pages, each its own address. On a computer the list sits beside the page (a sticky 250px column; **Connections**
 when none is chosen) with a small "Yours to keep." card and the environment name below it. On a phone `/settings` is the
 list alone (each row an icon, label and chevron) and a page opens **full screen with a back arrow** and its title. A page's
 header uses the page sentence ([08](08-home-and-headings.md#page-headings-srccomponentspageheadingtsx-srclibsummaryts)).
@@ -72,6 +72,12 @@ header uses the page sentence ([08](08-home-and-headings.md#page-headings-srccom
    button, [08](08-home-and-headings.md#customize-home-settings--display-and-navigation--customize-home-also-reachable-from-an-empty-home)),
    and **Edit navigation** (the tab bar list: "N of 5", Home locked, move earlier / later, remove, and add from the remaining
    pages; add is disabled when full).
+6. **Sign-in** (`/settings/sign-in`, key icon): with a passphrase, **Change passphrase**: _Current passphrase_, _New
+   passphrase_ (12+ characters) and _Repeat the passphrase_. The button is enabled only when the current one is filled and the
+   new one is long enough and matches; the server's error shows in the alert (a wrong current passphrase, the lockout); on
+   success the fields clear and it says "Passphrase changed. Other devices were signed out." while this browser stays
+   signed in. With no passphrase yet (the app is open on this computer), **Set a passphrase**: new and repeat; afterwards
+   the app asks for it ([02](02-foundation.md#sign-in)).
 
 Settings keeps its own Sync and Add an account buttons. The top bar's Sync button is production only; the Accounts page's
 Add an account is the only Add account button outside Settings (see [08](08-home-and-headings.md)).
@@ -121,10 +127,9 @@ before first paint. Zen night (dark) is the default look; tokens in [00](00-prin
 Shown instead of the app when sign-in is required and there is no session ([02](02-foundation.md#sign-in)): the same Zen look,
 a passphrase field, the error text from the server (including the lockout message), and the version line
 (`v <commit> · built <time>`). When no passphrase exists (`status.configured` false) it shows **Create a passphrase**
-instead: a **Setup code** field (only when `status.setupCode`; it says where the code is shown and how to get a new
-one), **New passphrase** (12+ characters) and **Repeat the passphrase**. The button is enabled only when the code is
-filled, the passphrase is long enough and both match; the server's error shows in the alert. On success the app loads
-signed in. Once a passphrase exists no device ever sees this form ([02](02-foundation.md#sign-in)).
+instead: **New passphrase** (12+ characters) and **Repeat the passphrase**. The button is enabled only when the
+passphrase is long enough and both match; the server's error shows in the alert. On success the app loads signed in.
+Once a passphrase exists no device ever sees this form ([02](02-foundation.md#sign-in)).
 
 ## Choices kept on a device
 

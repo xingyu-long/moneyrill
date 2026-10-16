@@ -63,8 +63,7 @@ try {
     status.status === 200 &&
       typeof sign?.required === 'boolean' &&
       typeof sign?.configured === 'boolean' &&
-      typeof sign?.setup === 'boolean' &&
-      typeof sign?.setupCode === 'boolean',
+      typeof sign?.setup === 'boolean',
     JSON.stringify(sign),
   );
   if (sign?.configured) {

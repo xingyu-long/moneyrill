@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Database,
+  KeyRound,
   Landmark,
   LayoutList,
   RefreshCw,
@@ -18,6 +19,7 @@ import {
   ConnectionsPage,
   DataPage,
   DisplayPage,
+  SignInPage,
   SyncPage,
 } from './SettingsPages.tsx';
 
@@ -27,6 +29,7 @@ const ICONS = {
   categories: Shapes,
   sync: RefreshCw,
   display: LayoutList,
+  'sign-in': KeyRound,
 };
 const PAGES: Record<SettingsSlug, () => React.JSX.Element> = {
   connections: ConnectionsPage,
@@ -34,6 +37,7 @@ const PAGES: Record<SettingsSlug, () => React.JSX.Element> = {
   categories: CategoriesPage,
   sync: SyncPage,
   display: DisplayPage,
+  'sign-in': SignInPage,
 };
 
 /** What the app promises, and where it is running: it used to sit at the foot of the sidebar. */

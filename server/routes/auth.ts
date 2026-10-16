@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { setupBody } from '../lib/schemas.ts';
+import { changeBody, setupBody } from '../lib/schemas.ts';
 import { clearedCookie, sessionCookie, type AuthService } from '../auth/service.ts';
 
 const OPEN = [
@@ -33,7 +33,21 @@ export function authRoutes(app: FastifyInstance, auth: AuthService) {
   app.post('/api/auth/setup', async (req, reply) => {
     const body = setupBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'Enter a passphrase' });
-    const token = await auth.setup(body.data.passphrase, body.data.code, req.ip);
+    const token = await auth.setup(body.data.passphrase, req.ip);
+    const secure = req.headers['x-forwarded-proto'] === 'https';
+    reply.header('Set-Cookie', sessionCookie(token, secure));
+    return { ok: true };
+  });
+  app.post('/api/auth/passphrase', async (req, reply) => {
+    const body = changeBody.safeParse(req.body);
+    if (!body.success)
+      return reply.code(400).send({ error: 'Enter your passphrase and a new one' });
+    const token = await auth.change(
+      body.data.current,
+      body.data.passphrase,
+      req.headers.cookie,
+      req.ip,
+    );
     const secure = req.headers['x-forwarded-proto'] === 'https';
     reply.header('Set-Cookie', sessionCookie(token, secure));
     return { ok: true };

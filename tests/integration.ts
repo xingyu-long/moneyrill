@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { pool } from '../server/db/pool.ts';
 import { DbAuthStore } from '../server/auth/store.ts';
 import { hashPassphrase } from '../server/auth/passphrase.ts';
-import { newSetupCode } from '../server/auth/setup-code.ts';
 import { recompute } from '../server/db/queries.ts';
 import { planTransactionChanges } from '../server/lib/transactions.ts';
 import { excludeUnreturnedAccounts } from '../server/services/sync.ts';
@@ -1956,15 +1955,12 @@ console.log(
 {
   const store = new DbAuthStore();
   assert.equal(await store.getPassphrase(), null, 'a fresh test database has no passphrase');
-  await store.setSetupCode(newSetupCode().record);
-  assert.ok(await store.getSetupCode());
   const [a, b] = await Promise.all([
     hashPassphrase('first long passphrase'),
     hashPassphrase('second long passphrase'),
   ]);
   const results = await Promise.all([store.createPassphrase(a), store.createPassphrase(b)]);
   assert.deepEqual(results.slice().sort(), [false, true], 'exactly one racing setup wins');
-  assert.equal(await store.getSetupCode(), null, 'a successful setup uses the code up');
   const stored = await store.getPassphrase();
   assert.ok(stored && [a.hash, b.hash].includes(stored.hash));
   assert.equal(await store.createPassphrase(a === stored ? b : a), false, 'never overwrites');

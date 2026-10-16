@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { hashPassphrase, verifyPassphrase } from './passphrase.ts';
-import { newSetupCode, setupCodeMatches } from './setup-code.ts';
 import type { AuthStore } from './store.ts';
 
 export const COOKIE = 'sw_session';
@@ -54,9 +53,8 @@ export class AuthService {
       required: this.alwaysRequired || configured,
       configured,
       authenticated: await this.isAuthenticated(cookieHeader),
-      // First run in LAN mode: the sign-in page offers to create the passphrase, with the setup code.
-      setup: this.alwaysRequired && !configured,
-      setupCode: this.alwaysRequired && !configured,
+      // No passphrase yet: the app offers to create one (sign-in page in LAN mode, Settings otherwise).
+      setup: !configured,
     };
   }
 
@@ -81,44 +79,49 @@ export class AuthService {
     return this.startSession(client, now);
   }
 
-  /**
-   * First run: choose the passphrase and sign in. Only while none exists. In LAN mode it also needs the
-   * one-time setup code printed on the host (./scripts/setup-code.sh), counted against the same lockout as sign-in.
-   */
-  async setup(passphrase: unknown, code: unknown, client = 'local'): Promise<string> {
+  /** First run: choose the passphrase and sign in. Only while none exists, so it can never replace one. */
+  async setup(passphrase: unknown, client = 'local'): Promise<string> {
     if (await this.store.getPassphrase()) throw new AuthError('A passphrase is already set', 409);
-    const now = Date.now();
-    const state = this.checkLock(client, now);
-    if (this.alwaysRequired) {
-      const stored = await this.store.getSetupCode();
-      if (!stored || Date.parse(stored.expiresAt) <= now)
-        throw new AuthError(
-          'There is no valid setup code. Run ./scripts/setup-code.sh on the computer hosting the app.',
-          403,
-        );
-      if (!setupCodeMatches(code, stored, now)) {
-        await this.fail(client, state, now);
-        throw new AuthError('Incorrect setup code', 403);
-      }
-    }
-    if (typeof passphrase !== 'string') throw new AuthError('Enter a passphrase', 400);
-    let record;
-    try {
-      record = await hashPassphrase(passphrase);
-    } catch (e: any) {
-      throw new AuthError(e.message, 400);
-    }
+    const record = await this.hash(passphrase);
     if (!(await this.store.createPassphrase(record)))
       throw new AuthError('A passphrase is already set', 409);
+    return this.startSession(client, Date.now());
+  }
+
+  /**
+   * Change the passphrase from a signed-in browser. A wrong current passphrase counts toward the same lockout as
+   * sign-in. Every device is signed out; the browser that changed it gets a fresh session.
+   */
+  async change(
+    current: unknown,
+    passphrase: unknown,
+    cookieHeader: string | undefined,
+    client = 'local',
+  ): Promise<string> {
+    const record = await this.store.getPassphrase();
+    if (!record)
+      throw new AuthError(
+        'No passphrase is set yet. Open the app in a browser to create one.',
+        503,
+      );
+    if (!(await this.isAuthenticated(cookieHeader))) throw new AuthError('Sign in required', 401);
+    const now = Date.now();
+    const state = this.checkLock(client, now);
+    if (typeof current !== 'string' || !(await verifyPassphrase(current, record))) {
+      await this.fail(client, state, now);
+      throw new AuthError('Incorrect passphrase', 401);
+    }
+    await this.store.setPassphrase(await this.hash(passphrase));
     return this.startSession(client, now);
   }
 
-  /** Makes a fresh setup code for the host's terminal; null when a passphrase already exists. */
-  async issueSetupCode() {
-    if (await this.store.getPassphrase()) return null;
-    const { code, record } = newSetupCode();
-    await this.store.setSetupCode(record);
-    return code;
+  private async hash(passphrase: unknown) {
+    if (typeof passphrase !== 'string') throw new AuthError('Enter a passphrase', 400);
+    try {
+      return await hashPassphrase(passphrase);
+    } catch (e: any) {
+      throw new AuthError(e.message, 400);
+    }
   }
 
   private checkLock(client: string, now: number) {
