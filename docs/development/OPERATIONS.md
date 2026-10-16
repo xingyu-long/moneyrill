@@ -67,21 +67,16 @@ ENV
 MONEYRILL_VERSION=0.1.0 docker compose --env-file .env.production -f compose.image.production.yaml up -d
 ```
 
-Then set the sign-in passphrase (typed hidden, never saved to a file or shell history):
+Then open http://localhost:3003 and **create the sign-in passphrase right away** (see [Sign-in](#sign-in-passphrase)): until one exists, whoever opens the page first can choose it.
 
-```sh
-stty -echo; printf 'Passphrase (12+ characters): '; read -r p; stty echo; printf '\n'
-printf '%s' "$p" | docker compose --env-file .env.production -f compose.image.production.yaml exec -T app ./node_modules/.bin/tsx server/set-passphrase.ts; unset p
-```
-
-Keep `.env.production` and `production.key` private and back them up with your database: the key decrypts the bank tokens, and the password belongs to the existing volume. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: before upgrading, take a backup (`docker compose ... exec -T db pg_dump -U moneyrill moneyrill > backup.sql`, then encrypt and store it), and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout as described above. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
+Keep `.env.production` and `production.key` private and back them up with your database: the key decrypts the bank tokens, and the password belongs to the existing volume. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: before upgrading, take a backup (`docker compose ... exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > backup.dump`, then encrypt and store it), and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout as described above. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
 
 ### Moving to another computer (for example a NAS)
 
 Move the data with an encrypted backup, and start the stack empty before restoring into it. You need three things from the old computer: the newest `backups/encrypted/production-*.dump.enc`, `secrets/backup.key` (decrypts the backup) and `secrets/production.key` (decrypts the bank tokens inside it). Carry the files over a private channel (`scp`, a USB drive), keep the two keys apart from the backup, and delete the copies you no longer need.
 
 1. **Old computer:** `./scripts/backup.sh production` (verified and encrypted), then copy the files above plus `.env.production` for the Plaid keys.
-2. **New computer, in a new folder:** put `production.key` (the old `production.key`), `backup.key`, the backup and the example compose file there. Write `.env.production` with the Plaid keys, a **new** `POSTGRES_PASSWORD` (`openssl rand -hex 24`) and the `INSTANCE_NAME` you want (any name; the restore ignores owners). To reach it from your other devices add `BIND_ADDRESS=<its private LAN address>` and `ALLOW_LAN=true` (never `0.0.0.0`); sign-in is then mandatory, and the passphrase comes across with the data.
+2. **New computer, in a new folder:** put `production.key` (the old `production.key`), `backup.key`, the backup and the example compose file there. Write `.env.production` with the Plaid keys, a **new** `POSTGRES_PASSWORD` (`openssl rand -hex 24`) and the `INSTANCE_NAME` you want (any name; the restore ignores owners). To reach it from your other devices add `BIND_ADDRESS=<its private LAN address>` and `ALLOW_LAN=true` (never `0.0.0.0`). The passphrase comes across with the data, so you sign in with the old one.
 3. **Start only the database:** `MONEYRILL_VERSION=… docker compose --env-file .env.production -f compose.image.production.yaml up -d db`
 4. **Restore into it** (the app has not run, so the database is empty):
    ```sh
