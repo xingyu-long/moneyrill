@@ -4,6 +4,10 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Added
+
+- **Configurable ports**: `STAGING_PORT` (default 3002) and `PRODUCTION_PORT` (default 3003) set the port each environment is published on, in `.env` or, to override it, `.env.production`. The compose files, `deploy.sh`, `ship.sh` (smoke tests) and `rollback.sh` follow them, `PUBLIC_ORIGIN` matches, and `deploy.sh` refuses the same port for both. Defaults are unchanged.
+
 ### Changed
 
 - **Personal files are ignored by git**: `CLAUDE.local.md` and `private/` (the maintainer's own agent rules and notes) are in `.gitignore`. The export script and its exclude list, which made a public copy of a private repository, are removed.

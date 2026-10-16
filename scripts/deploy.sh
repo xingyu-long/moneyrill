@@ -31,6 +31,12 @@ check_instance() {
   exit 1
 }
 case "$environment" in staging | production) check_instance "$environment";; esac
+# Each environment publishes its own port (STAGING_PORT, PRODUCTION_PORT); they must differ to run side by side.
+staging_port="$(env_port staging)"; production_port="$(env_port production)"
+if [ "$staging_port" = "$production_port" ]; then
+  printf 'Refusing to deploy: STAGING_PORT and PRODUCTION_PORT are both %s; give each environment its own port.\n' "$staging_port" >&2; exit 1
+fi
+export STAGING_PORT="$staging_port" PRODUCTION_PORT="$production_port" # win over the env files compose reads
 mkdir -p .releases
 case "$environment" in
  staging)
@@ -49,7 +55,7 @@ case "$environment" in
   APP_IMAGE="$image" docker compose $(lan_files .env compose.lan.yaml) up -d --wait
   printf '%s\n' "$image" > .releases/staging-image
   docker image inspect --format '{{.Id}}' "$image" > .releases/staging-image-id
-  printf 'Staging ready at http://localhost:3002\nAfter validation, promote this exact image:\n./scripts/deploy.sh production %s\n' "$image"
+  printf 'Staging ready at http://localhost:%s\nAfter validation, promote this exact image:\n./scripts/deploy.sh production %s\n' "$staging_port" "$image"
   ;;
  production)
   image="${2:-}"
@@ -73,7 +79,7 @@ case "$environment" in
   fi
   APP_IMAGE="$image" docker compose --env-file .env.production -f compose.production.yaml $(lan_files .env.production compose.production.lan.yaml -f) up -d --wait
   printf '%s\n' "$image" > .releases/production-image
-  printf '%s\n' 'Production ready at http://localhost:3003. Staging data was not copied.'
+  printf 'Production ready at http://localhost:%s. Staging data was not copied.\n' "$production_port"
   ;;
  *) printf '%s\n' 'Usage: deploy.sh staging | deploy.sh production IMAGE' >&2; exit 1;;
 esac

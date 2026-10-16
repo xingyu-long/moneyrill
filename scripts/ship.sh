@@ -2,7 +2,7 @@
 # One command to release a change safely.
 #
 #   ./scripts/ship.sh                 checks -> staging -> smoke test -> asks -> production -> smoke test
-#   ./scripts/ship.sh --stage-only    stop after staging so you can try it at http://localhost:3002
+#   ./scripts/ship.sh --stage-only    stop after staging so you can try it (http://localhost:STAGING_PORT, default 3002)
 #   ./scripts/ship.sh --promote-only  promote the image already on staging (after you tried it)
 #   ./scripts/ship.sh --yes           do not ask before promoting (for automation)
 #
@@ -23,6 +23,9 @@ for arg in "$@"; do
     *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
+
+. ./scripts/instance.sh
+staging_port="$(env_port staging)"; production_port="$(env_port production)"
 
 step() { printf '\n== %s\n' "$1"; }
 fail() { printf '\nSTOPPED: %s\n' "$1" >&2; log "STOPPED $1"; exit 1; }
@@ -67,14 +70,14 @@ case "$image" in
 esac
 
 step "4. Smoke test staging"
-npx tsx tests/smoke.ts http://localhost:3002 sandbox "$head_sha" || fail "staging smoke test failed. Production was not touched."
+npx tsx tests/smoke.ts "http://localhost:$staging_port" sandbox "$head_sha" || fail "staging smoke test failed. Production was not touched."
 
 if [ "$stage_only" = 1 ]; then
   log "STAGED $image"
   # This exact commit passed every local gate (clean, pushed, checks, integration, staging, smoke test):
   # merge-pr.sh merges it without waiting for a GitHub runner.
   log "VERIFIED $(git rev-parse HEAD)"
-  printf '\nStaging is ready at http://localhost:3002 (%s).\nTry it, then run: ./scripts/ship.sh --promote-only\n' "$image"
+  printf '\nStaging is ready at http://localhost:%s (%s).\nTry it, then run: ./scripts/ship.sh --promote-only\n' "$staging_port" "$image"
   exit 0
 fi
 
@@ -87,7 +90,6 @@ if [ -n "$prod_sha" ] && git cat-file -e "$prod_sha" 2>/dev/null; then
   echo "Changes since production:"
   git log --oneline "$prod_sha..HEAD" | sed 's/^/  /'
 fi
-. ./scripts/instance.sh
 prod="$(instance_name production)"
 applied="$(docker exec "$prod-production-db-1" psql -U "$prod" -d "$prod" -Atc 'SELECT version FROM schema_migrations' 2>/dev/null || true)"
 new_migrations="$(ls server/db/migrations | while read -r f; do printf '%s\n' "$applied" | grep -qx "$f" || echo "  $f"; done)"
@@ -122,7 +124,7 @@ out="$(./scripts/deploy.sh production "$image" 2>&1)" || { printf '%s\n' "$out" 
 printf '%s\n' "$out" | tail -8
 
 step "7. Smoke test production"
-if ! npx tsx tests/smoke.ts http://localhost:3003 production "$head_sha"; then
+if ! npx tsx tests/smoke.ts "http://localhost:$production_port" production "$head_sha"; then
   log "PRODUCTION SMOKE FAILED $image"
   printf '\nProduction failed its smoke test. To go back to the previous version run:\n  ./scripts/rollback.sh\n' >&2
   exit 1
