@@ -59,6 +59,8 @@ test('the compose files publish the configured port and match the origin to it',
     ['compose.lan.yaml', 'STAGING_PORT:-3002'],
     ['compose.production.yaml', 'PRODUCTION_PORT:-3003'],
     ['compose.production.lan.yaml', 'PRODUCTION_PORT:-3003'],
+    ['examples/compose.image.yaml', 'STAGING_PORT:-3002'],
+    ['examples/compose.image.production.yaml', 'PRODUCTION_PORT:-3003'],
   ];
   for (const [file, variable] of files) {
     const text = readFileSync(file, 'utf8');
