@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { config } from './lib/config.ts';
 import { isAllowedHost, isAllowedOrigin } from './lib/hosts.ts';
 import { log } from './lib/log.ts';
+import { isApiRequest } from './lib/route.ts';
 import { AuthService } from './auth/service.ts';
 import { DbAuthStore, type AuthStore } from './auth/store.ts';
 import { authRoutes } from './routes/auth.ts';
@@ -64,7 +65,7 @@ export async function createApp(opts: { authStore?: AuthStore; failureDelayMs?: 
     reply.header('Cross-Origin-Opener-Policy', 'same-origin');
   });
   app.addHook('onRequest', async (req, reply) => {
-    if (!req.url.startsWith('/api')) return;
+    if (!isApiRequest(req)) return;
     reply.header('Cache-Control', 'no-store');
     if (!isAllowedHost(req.headers.host, config.allowLan))
       return reply.code(403).send({ error: 'Local access only' });
@@ -95,7 +96,7 @@ export async function createApp(opts: { authStore?: AuthStore; failureDelayMs?: 
   investmentRoutes(app);
   await app.register(statics, { root: path.resolve('dist') });
   app.setNotFoundHandler((req, reply) =>
-    req.url.startsWith('/api')
+    isApiRequest(req)
       ? reply.code(404).send({ error: 'Unknown endpoint' })
       : reply.sendFile('index.html'),
   );

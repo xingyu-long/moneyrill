@@ -55,6 +55,26 @@ test('once a passphrase is set the API requires a session, except health and sta
   await app.close();
 });
 
+test('an /api route written another way still needs a session and a local host', async () => {
+  const { app } = await appWithPassphrase();
+  const get = (url: string, host = headers.host) =>
+    app.inject({ method: 'GET', url, headers: { ...headers, host } });
+  // The router decodes these to /api routes, so the checks must too.
+  for (const url of [
+    '/%61pi/overview',
+    '/%61%70%69/export',
+    '/api/%6fverview',
+    '/api/overview?x=/api/health',
+  ])
+    assert.equal((await get(url)).statusCode, 401, url);
+  assert.equal((await get('/%61pi/health')).statusCode, 200);
+  assert.equal((await get('/%61pi/overview', 'evil.example')).statusCode, 403);
+  // An unknown /api path is still an API request: host-checked, signed in, never the app's HTML.
+  assert.equal((await get('/api/nope', 'evil.example')).statusCode, 403);
+  assert.equal((await get('/api/nope')).statusCode, 401);
+  await app.close();
+});
+
 test('wrong passphrase is rejected; the right one gives a working session cookie', async () => {
   const { app, store } = await appWithPassphrase();
   const wrong = await login(app, 'not the passphrase');

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { isApiRequest, routedPath } from '../lib/route.ts';
 import { changeBody, setupBody } from '../lib/schemas.ts';
 import { clearedCookie, sessionCookie, type AuthService } from '../auth/service.ts';
 
@@ -13,8 +14,7 @@ const OPEN = [
 export function authRoutes(app: FastifyInstance, auth: AuthService) {
   // Everything under /api needs a session, except the open endpoints.
   app.addHook('onRequest', async (req, reply) => {
-    const path = req.url.split('?')[0];
-    if (!path.startsWith('/api') || OPEN.includes(path)) return;
+    if (!isApiRequest(req) || OPEN.includes(routedPath(req))) return;
     const status = await auth.status(req.headers.cookie);
     if (!status.authenticated)
       return reply.code(401).send({

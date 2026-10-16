@@ -86,6 +86,13 @@ try {
     overview.status === 401,
     `HTTP ${overview.status}`,
   );
+  // The router decodes percent-escapes, so the same route written another way must be blocked too.
+  const encoded = await get('/%61pi/overview');
+  add(
+    'financial data is blocked when the path is percent-encoded',
+    encoded.status === 401,
+    `HTTP ${encoded.status}`,
+  );
 
   // Read-only: transactions, categories and reports are blocked without a session.
   const txns = await get('/api/transactions?limit=1');

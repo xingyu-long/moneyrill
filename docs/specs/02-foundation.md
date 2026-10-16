@@ -123,6 +123,9 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
   passphrase and sets the cookie; `POST /api/auth/passphrase` `{current, passphrase}` → changes it and sets a fresh
   cookie; `POST /api/auth/logout` clears it. Status, login, setup, logout and `/api/health` are open; everything else
   under `/api`, including the change, answers 401 `{error}` without a session.
+- **Which requests are `/api` requests.** The sign-in and host checks decide on the route the request is routed to,
+  not on the path as written: the router decodes percent-escapes, so `/%61pi/overview` is the `/api/overview` route and
+  needs a session like it. A path written as `/api/...` that matches no route is also checked (404 with a session).
 - **First-run setup.** Only while no passphrase exists; afterwards `POST /api/auth/setup` answers 409 "A passphrase is
   already set" and changes nothing (the insert is atomic, so two racing setups cannot both win, and it deletes every
   session). A passphrase under 12 characters → 400. It is offered on the sign-in page whenever none exists. **Accepted
@@ -159,6 +162,9 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
 - Sign-in: wrong passphrase 401 after the delay; five failures lock one address but not another; success sets a
   `HttpOnly` `SameSite=Strict` cookie; changing the passphrase invalidates sessions; with no
   passphrase everything but the open endpoints answers 401 (`tests/auth.test.ts`).
+- An `/api` route written another way (`/%61pi/overview`, `/api/%6fverview`) still answers 401 without a session and
+  403 from a foreign `Host`; `/%61pi/health` stays open; an unknown `/api` path is host-checked and needs a session
+  (`tests/auth.test.ts`, and the smoke test against a running stack).
 - First-run setup: it stores the passphrase and signs in; a short or missing one is 400 and stores nothing; with a
   passphrase present it answers 409 and neither replaces it nor signs anyone out; two setups at once leave exactly one
   winner (also against the real table in `tests/integration.ts`).
