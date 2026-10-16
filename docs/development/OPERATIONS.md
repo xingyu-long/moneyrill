@@ -69,37 +69,41 @@ MONEYRILL_VERSION=0.1.0 docker compose --env-file .env.production -f compose.ima
 
 Then open http://localhost:3003 and **create the sign-in passphrase right away** (see [Sign-in](#sign-in-passphrase)): until one exists, whoever opens the page first can choose it.
 
-Keep `.env.production` and `production.key` private and back them up with your database: the key decrypts the bank tokens, and the password belongs to the existing volume. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: before upgrading, take a backup (`docker compose ... exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > backup.dump`, then encrypt and store it), and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout as described above. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
+Keep `.env.production` and `production.key` private and back them up with your database. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: [back up](#back-up-and-restore-everything-migration) before upgrading and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
 
-### Moving to another computer (for example a NAS)
+### Back up and restore everything (migration)
 
-Move the data with an encrypted backup, and start the stack empty before restoring into it. You need three things from the old computer: the newest `backups/encrypted/production-*.dump.enc`, `secrets/backup.key` (decrypts the backup) and `secrets/production.key` (decrypts the bank tokens inside it). Carry the files over a private channel (`scp`, a USB drive), keep the two keys apart from the backup, and delete the copies you no longer need.
+To move to another computer (a NAS, say) or recover one, you need all of these; the database alone is not enough:
 
-1. **Old computer:** `./scripts/backup.sh production` (verified and encrypted), then copy the files above plus `.env.production` for the Plaid keys.
-2. **New computer, in a new folder:** put `production.key` (the old `production.key`), `backup.key`, the backup and the example compose file there. Write `.env.production` with the Plaid keys, a **new** `POSTGRES_PASSWORD` (`openssl rand -hex 24`) and the `INSTANCE_NAME` you want (any name; the restore ignores owners). To reach it from your other devices add `BIND_ADDRESS=<its private LAN address>` and `ALLOW_LAN=true` (never `0.0.0.0`). The passphrase comes across with the data, so you sign in with the old one.
-3. **Start only the database:** `MONEYRILL_VERSION=… docker compose --env-file .env.production -f compose.image.production.yaml up -d db`
-4. **Restore into it** (the app has not run, so the database is empty):
-   ```sh
-   openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass file:backup.key -in production-YYYYMMDD-HHMMSS.dump.enc |
-     MONEYRILL_VERSION=… docker compose --env-file .env.production -f compose.image.production.yaml exec -T db \
-       sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner'
-   ```
-5. **Start everything:** `… up -d`. Use an image version at least as new as the one that made the backup; migrations run on start. Check that the accounts and balances match the old computer before you retire it.
-6. **Plaid:** existing connections keep syncing (their tokens travel in the backup, encrypted with `production.key`). Plaid Link needs HTTPS or `localhost`, so to connect or reconnect an account open the app at `localhost` on the machine that runs it, or from a computer you reach it through with an SSH port forward you start yourself. Do not expose it to the internet.
+- **The database**, as a dump.
+- **`production.key`**: it decrypts the bank tokens inside the dump.
+- **`.env.production`**: your Plaid keys and `INSTANCE_NAME`.
+- **`backup.key`**, if the dump was made by `backup.sh` (it encrypts the dump).
 
-Stop the old stack (`docker compose -p <name>-production down`, never `-v`) before you run both on the same network, and keep its volume and the backup until the new one has run a few days and been backed up itself.
+**Back up** on the old computer:
 
-### Moving an existing source installation to the image
+```sh
+./scripts/backup.sh production    # source checkout: backups/encrypted/production-*.dump.enc (keys are in secrets/)
+# image install: an unencrypted dump, so keep it private
+docker compose --env-file .env.production -f compose.image.production.yaml exec -T db \
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > moneyrill.dump
+```
 
-The data stays in its Docker volume, so switching only changes what runs on it. Use the same `INSTANCE_NAME`, database password and key, and the example will reuse the volume `<name>-production_database`.
+Carry the dump and the files above over a private channel (`scp`, a USB drive), keep the keys apart from the dump, and delete the copies afterwards.
 
-1. Back up first (`./scripts/backup.sh production`) and keep the backup.
-2. In a new folder, copy `.env.production` (it holds `INSTANCE_NAME`, `POSTGRES_PASSWORD` and the Plaid keys) and `secrets/production.key` (as `production.key`) from the checkout, and download the example.
-3. Stop the old stack without deleting data: `docker compose -p <name>-production down` (never `-v`).
-4. Start the image: `MONEYRILL_VERSION=… docker compose --env-file .env.production -f compose.image.production.yaml up -d`. Migrations run on start; the passphrase and all data are unchanged.
-5. To go back, stop it the same way and run `./scripts/deploy.sh production IMAGE` from the checkout with the image it recorded.
+**Restore** on the new computer, in a new folder holding the example compose file, `production.key` and `.env.production` (a **new** `POSTGRES_PASSWORD` is fine, `INSTANCE_NAME` can be anything; add `BIND_ADDRESS=<its private LAN address>` and `ALLOW_LAN=true` to reach it from other devices, never `0.0.0.0`):
 
-After the switch the checkout's `deploy.sh`, `ship.sh --promote-only`, `rollback.sh` and the daily backup job no longer match what is running, so back up with `pg_dump` as above, or keep deploying production from the source checkout instead.
+```sh
+export MONEYRILL_VERSION=0.1.0       # at least the version that made the dump
+c="docker compose --env-file .env.production -f compose.image.production.yaml"
+$c up -d db                           # the app has not run, so the database is empty
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass file:backup.key -in production-….dump.enc \
+  | $c exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner'
+#  an image-install dump instead:  $c exec -T db sh -c '…same pg_restore…' < moneyrill.dump
+$c up -d                              # migrations run on start
+```
+
+Sign in with your old passphrase and compare accounts and balances with the old computer. Then stop the old stack (`docker compose -p <name>-production down`, never `-v`) and keep its volume and the dump until the new one has run a few days and been backed up itself. Existing Plaid connections keep syncing; to connect or reconnect an account, open the app at `localhost` on the machine that runs it (Plaid Link needs `localhost` or HTTPS).
 
 ## Which version is running?
 
