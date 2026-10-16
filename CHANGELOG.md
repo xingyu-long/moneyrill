@@ -4,6 +4,10 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Fixed
+
+- **Docs for the published image**: on Linux and a NAS the key file must be owned by user 1000 (`sudo chown 1000:1000 production.key`), otherwise every connection shows `SYNC_FAILED` with "Cannot read the token key"; the examples and OPERATIONS now say so. The restore steps say to wait for the first-start database setup to finish, and the download commands use `curl -fsSLO` so a 404 fails instead of saving an error page.
+
 ## [0.1.0] - 2026-10-15
 
 ### Added

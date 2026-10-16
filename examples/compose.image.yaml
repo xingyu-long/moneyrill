@@ -3,6 +3,7 @@
 #
 #   mkdir moneyrill && cd moneyrill && curl -O <raw URL of this file>
 #   openssl rand -hex 32 > token.key && chmod 600 token.key
+#   Linux or NAS: also run  sudo chown 1000:1000 token.key  (the container runs as user 1000)
 #   MONEYRILL_VERSION=0.1.0 docker compose -f compose.image.yaml up -d
 #   open http://localhost:3002        (STAGING_PORT in the environment or a .env next to this file changes the port)
 #

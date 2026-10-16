@@ -43,11 +43,14 @@ Each release tag (`v0.1.0`) publishes an image to `ghcr.io/xingyu-long/moneyrill
 
 ```sh
 mkdir moneyrill && cd moneyrill
-curl -O https://raw.githubusercontent.com/xingyu-long/moneyrill/main/examples/compose.image.yaml
+curl -fsSLO https://raw.githubusercontent.com/xingyu-long/moneyrill/main/examples/compose.image.yaml
 openssl rand -hex 32 > token.key && chmod 600 token.key       # keep it: it encrypts the bank tokens
+# Linux or NAS: the container runs as user 1000, so also run: sudo chown 1000:1000 token.key
 MONEYRILL_VERSION=0.1.0 docker compose -f compose.image.yaml up -d
 open http://localhost:3002                                    # Linux: xdg-open
 ```
+
+**The key file must be readable by the container.** The app runs as user 1000 (`node`) and reads the key through a bind mount that keeps the file's owner and mode, so on Linux a `600` file owned by root is unreadable and every connection shows `SYNC_FAILED` with "Cannot read the token key". Make user 1000 the owner (`sudo chown 1000:1000 production.key`, keeping `chmod 600`) and restart the app and worker. On macOS (Docker Desktop, OrbStack) `chmod 600` alone is enough, and `chown 1000` would lock you out of your own file. Copying a key to another computer (`scp`, a USB drive) can reset its owner, so set it again there.
 
 Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run `up -d` again (migrations are additive and run on start; take a backup first). Sandbox keys go in `PLAID_CLIENT_ID` and `PLAID_SECRET` in the environment or a `.env` file next to the compose file. `docker compose -f compose.image.yaml down` stops it; add `-v` to delete the data. For another port, set `STAGING_PORT` in the environment or in a `.env` next to the compose file.
 
@@ -57,8 +60,9 @@ Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run 
 
 ```sh
 mkdir moneyrill-production && cd moneyrill-production
-curl -O https://raw.githubusercontent.com/xingyu-long/moneyrill/main/examples/compose.image.production.yaml
-openssl rand -hex 32 > production.key && chmod 600 production.key
+curl -fsSLO https://raw.githubusercontent.com/xingyu-long/moneyrill/main/examples/compose.image.production.yaml
+openssl rand -hex 32 > production.key
+# Linux or NAS: the container runs as user 1000, so also run: sudo chown 1000:1000 production.key
 umask 077 && cat > .env.production <<ENV
 PLAID_CLIENT_ID=<your Production client id>
 PLAID_SECRET=<your Production secret>
@@ -97,6 +101,7 @@ Carry the dump and the files above over a private channel (`scp`, a USB drive), 
 export MONEYRILL_VERSION=0.1.0       # at least the version that made the dump
 c="docker compose --env-file .env.production -f compose.image.production.yaml"
 $c up -d db                           # the app has not run, so the database is empty
+$c logs --tail 5 db                   # first start only: wait for "init process complete", then "ready to accept connections" (a slow disk takes longer)
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass file:backup.key -in production-….dump.enc \
   | $c exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner'
 #  an image-install dump instead:  $c exec -T db sh -c '…same pg_restore…' < moneyrill.dump
