@@ -1,98 +1,123 @@
-# First-run passphrase setup in the UI
+# Passphrase in the UI: first-run setup and change in Settings
 
-Status: implemented on `feature/first-run-setup` (step 4, the Settings entry for localhost-only mode, was left out); the open decision is settled (setup code in LAN mode). Written 2026-10-15 for a later session to carry out on `feature/first-run-setup`.
+Status: revised 2026-10-15. The owner wants **no scripts** for the passphrase. Everything happens in the browser. Commit
+`bbaddd7` on `feature/first-run-setup` built an earlier version of this plan, with a one-time setup code and
+`setup-code.sh`. This plan replaces that version. Rework that branch as described below; don't start again from main.
 
-Today the passphrase can only be set on the host with `./scripts/set-passphrase.sh`, and the login page tells you to
-run it. The goal: on a **fresh installation** (no passphrase stored yet) the login page lets you choose the passphrase
-right there and signs you in. **Once a passphrase exists, the page only ever asks for it**, exactly as now. Nothing in
-the UI can change, reset or clear an existing passphrase; that stays host-only (`set-passphrase.sh`), so an installation
-that already has one (production today) behaves exactly as before.
+## What the owner wants
 
-## Behaviour
+1. **Fresh installation (no passphrase stored):** the sign-in page shows **Create a passphrase**: a new passphrase and
+   a repeat field, with no setup code. Submitting it stores the passphrase and signs that browser in.
+2. **Passphrase exists:** the sign-in page only asks for it, as it does today. Production already has one and keeps
+   it. Nothing about it is reset.
+3. **Signed in:** a new Settings page, **Sign-in** (`/settings/sign-in`), changes the passphrase. It asks for the
+   current passphrase, the new one and a repeat.
+4. **No scripts.** Remove `scripts/set-passphrase.sh` and `server/set-passphrase.ts`, plus everything the earlier
+   version added for the setup code.
 
-| State                            | Today                                   | After                                                              |
-| -------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| Passphrase set                   | Login page asks for it                  | Unchanged                                                          |
-| No passphrase, localhost only    | App open, no sign-in                    | Unchanged (open); Settings offers "Set a passphrase" (see step 4)  |
-| No passphrase, `ALLOW_LAN=true`  | Login page says "run set-passphrase.sh" | Login page shows **Create a passphrase** (+ setup code, see below) |
-| Setup attempted after one exists | n/a                                     | 409 "A passphrase is already set", nothing changes                 |
+Keep it simple: no setup code, no "remove passphrase" button, no other new options.
 
-The create form: passphrase + repeat (both `type="password"`, `autoComplete="new-password"`), the 12-character
-minimum shown up front, the same error box and version line as the sign-in form. On success the browser holds a
-session and the app loads; the page never shows the setup form again on any device.
+## Accepted trade-offs (state them in the docs)
 
-## Decision: a one-time setup code in LAN mode
+- **Who claims a fresh LAN install.** With `ALLOW_LAN=true` and no passphrase, whoever opens the page first on the
+  Wi-Fi chooses it. The owner accepts this for a home network. The docs should say to create the passphrase right
+  after the first deploy. Once a passphrase exists, setup is closed for good (409).
+- **Forgotten passphrase.** With no script, the browser has no way to recover. Document one manual recovery command in
+  `docs/development/OPERATIONS.md`, run on the host. It deletes the `auth_passphrase` row and all sessions, for example
+  `docker exec -i <instance>-production-db-1 psql -U <user> -c "DELETE FROM settings WHERE key='auth_passphrase'; DELETE FROM sessions"`.
+  Use the real container name and user from `scripts/instance.sh` and check that the command works on staging. After
+  that, the sign-in page offers **Create a passphrase** again. This is a documented command, not a script.
+- **Localhost-only mode, no passphrase:** the app stays open, as it is today. The new Sign-in page in Settings then
+  offers **Set a passphrase** (new + repeat, using the setup endpoint). Once one is set it shows the change form.
 
-Decided by the owner on 2026-10-15. With `ALLOW_LAN=true` the app is reachable from the Wi-Fi before a passphrase
-exists, so without a guard whoever opens the page first could choose it. The `Host` header is not a boundary (a LAN
-client can send `Host: localhost` to the private address), and `req.ip` inside Docker is the bridge gateway, so
-"only from the host computer" cannot be enforced in the app. Therefore:
+## Server
 
-- In LAN mode with no passphrase, `deploy.sh` (already run in a terminal for a fresh install) asks the app to create a
-  random code (8 characters of base32 shown as `XXXX-XXXX`, stored only as a SHA-256 in `settings.auth_setup_code` with
-  a 1-hour expiry) and prints `Open http://localhost:3003 and enter setup code XXXX-XXXX` once. The create form asks
-  for the code too. Running the step again replaces the code; an expired code is useless.
-- Localhost-only mode needs no code: there, anyone who can reach the page already has full access because the app is
-  open.
+Starting from the branch as it is:
 
-## Steps
+- **Remove the setup code completely:** `server/auth/setup-code.ts`, `server/setup-code.ts`, `scripts/setup-code.sh`,
+  the `print_setup_code` hook in `scripts/deploy.sh`, the `getSetupCode` and `setSetupCode` store methods (Db and
+  Memory), the `auth_setup_code` handling inside `createPassphrase`, `issueSetupCode()`, and the code check in
+  `AuthService.setup()`. Leave existing databases alone: a stale `auth_setup_code` row on staging is harmless. A
+  migration is optional and probably not worth adding.
+- **Status:** `GET /api/auth/status` → `{required, configured, authenticated, setup}`. Drop `setupCode`.
+  `setup = !configured`. In open localhost mode the sign-in page never shows anyway, so the UI uses `setup` only where
+  it applies.
+- **`POST /api/auth/setup` `{passphrase}`** stays as built: open endpoint, only while no passphrase exists, atomic
+  insert (`createPassphrase`), 409 once one exists, 400 under 12 characters, signs in on success. Drop `code` from
+  `setupBody` in `server/lib/schemas.ts`.
+- **New `POST /api/auth/passphrase` `{current, passphrase}`.** It needs a session, so it is not in `OPEN`.
+  - Add `AuthService.change(current, next, cookieHeader, client)`.
+  - A wrong `current` → 401 "Incorrect passphrase". It counts toward the same per-address lockout as sign-in (reuse
+    `checkLock` and `fail`).
+  - A new passphrase under 12 characters → 400 (from `hashPassphrase`).
+  - On success, call `store.setPassphrase(record)`, which already deletes every session (every device is signed out),
+    then start a fresh session for this browser and set its cookie, so the person who changed it stays signed in.
+  - Add `changeBody` to `server/lib/schemas.ts`. Keep the route thin, like `/api/auth/login`.
+- **Messages:** the 503 from `login()` and the 401 for no passphrase say "No passphrase is set yet. Open the app in a
+  browser to create one." (already done). Search for any remaining `set-passphrase.sh` text and remove it.
 
-1. **Store (server/auth/store.ts).** Add `createPassphrase(record): Promise<boolean>` to `AuthStore`: an atomic
-   insert that only succeeds when no row exists (`INSERT ... ON CONFLICT(key) DO NOTHING`, return `rowCount === 1`),
-   so two racing setups cannot overwrite each other or an existing passphrase. It also deletes `sessions` and the
-   setup code. Mirror it in `MemoryAuthStore`. For the code: `setSetupCode(hash, expiresAt)`,
-   `getSetupCode()`, cleared on use. No migration needed (`settings` is a key/value table); confirm that.
-2. **Service (server/auth/service.ts).** `status()` gains `setup: boolean` (true when no passphrase **and** sign-in
-   is required, i.e. LAN mode) and `setupCode: boolean` (a code is required). New `setup(passphrase, code, client)`:
-   - refuses with 409 if a passphrase exists (check, then rely on the atomic insert for the race);
-   - in LAN mode checks the code (constant-time compare of hashes, expiry) and shares the existing per-address
-     failure counter and lockout with `login()` so the code cannot be brute-forced;
-   - `hashPassphrase()` enforces the 12-character minimum (400 with its message);
-   - on success creates a session exactly like `login()` and returns the token. Extract the session-creation lines
-     from `login()` into a private helper instead of copying them.
-     Change the 503 message in `login()` and the 401 text in `server/routes/auth.ts` to point to the setup form.
-3. **Route (server/routes/auth.ts).** `POST /api/auth/setup` `{passphrase, code?}` parsed with a zod schema in
-   `server/lib/schemas.ts`; add the path to `OPEN`; set the cookie the same way as login. Keep the route thin.
-4. **Localhost-only, no passphrase (optional, ask the owner).** The app is open there, so the login page never shows.
-   Offer the same form in Settings ("Require a passphrase on this computer") only while none is set; it calls the
-   same endpoint. Once one is set the Settings entry disappears. If the owner does not want this, skip it.
-5. **UI (src/components/LoginPage.tsx, src/state/useAppModel.ts).** `auth` gets `setup` and `setupCode`; add
-   `setUp(passphrase, code)` next to `signIn` in the model (calls the endpoint, then `checkAuth()`). Replace the
-   "run set-passphrase.sh" branch of `LoginPage` with the create form (repeat field must match before submit; code
-   field only when `setupCode`). Reuse `Field`, `Input`, `Button`, `Card` and the existing error box.
-6. **Setup code CLI.** `server/setup-code.ts` (like `server/set-passphrase.ts`): if no
-   passphrase exists, create a code, store its hash, print the code; otherwise print "A passphrase is already set"
-   and exit 0. `deploy.sh` runs it after a healthy start when `ALLOW_LAN=true`; never log it through
-   `server/lib/log.ts`. Make sure `scripts/scan-secrets.sh` and the smoke test do not trip on it.
-7. **Keep `set-passphrase.sh`** as the only way to change or clear a passphrase (and the recovery path if it is
-   forgotten). Update its header comment and the help text only.
+## UI
+
+- **`src/components/LoginPage.tsx`:** keep the create form, but remove the setup-code field, its hint and the
+  `setupCode` condition on the button. `useAppModel.setUp(passphrase)` drops the `code` argument, and `auth` drops
+  `setupCode`.
+- **Settings → Sign-in page:**
+  - Add `{ slug: 'sign-in', label: 'Sign-in' }` to `SETTINGS_PAGES` in `src/lib/routes.ts`.
+  - Render the page from `src/components/SettingsTab.tsx` / `SettingsPages.tsx`, following the other pages and using
+    `SettingsCard`, `Field`, `Input` and `Button`.
+  - When `auth.configured` is true, show **Change passphrase**: current, new, repeat. The button is enabled only when
+    new is 12 or more characters and matches repeat. Show the server error in the alert. On success, clear the fields
+    and say "Passphrase changed. Other devices were signed out."
+  - When it is false (open localhost mode), show **Set a passphrase**: new and repeat. It calls `setUp`, and afterwards
+    the app requires sign-in.
+  - Add `changePassphrase(current, next)` to `src/state/useAppModel.ts` next to `signIn` and `setUp`.
+- Reuse one small shared "new + repeat" field group if the sign-in page and Settings can use the same one.
 
 ## Tests
 
-- `tests/auth.test.ts` (MemoryAuthStore): setup with no passphrase signs in and sets the cookie; setup when one
-  exists answers 409 and the old passphrase still works and old sessions survive; two concurrent setups → exactly
-  one wins; a short passphrase answers 400 and stores nothing; LAN mode: missing/wrong/expired code is refused,
-  wrong codes count toward the lockout, a used code cannot be reused; `/api/auth/setup` is reachable without a
-  session but every data endpoint still answers 401 before setup.
-- `tests/ui/login.test.tsx`: configured → sign-in form only (no create form, no repeat field); setup → create form;
-  mismatched repeat disables submit; code field only when asked for; server error shown in the alert.
-- `tests/integration.ts` (real database): the atomic insert refuses a second setup.
-- `tests/smoke.ts`: `/api/auth/status` includes `setup`; on production `setup` is false (a passphrase exists) and
-  `POST /api/auth/setup` answers 409. Do not send a real passphrase to production.
+- **`tests/auth.test.ts`:**
+  - Delete the setup-code tests.
+  - Keep and adjust: setup with no passphrase signs in; setup is refused (409) and changes nothing once a passphrase
+    exists; a short passphrase is 400; two concurrent setups leave exactly one winner; LAN mode, before setup, gives
+    `setup: true` and a 401 on data endpoints.
+  - Add for change:
+    - No session → 401.
+    - A wrong current passphrase → 401, and it counts toward the lockout.
+    - A short new passphrase → 400, and the old one still works.
+    - Success: the new passphrase signs in and the old one does not; other sessions are gone; the browser that made
+      the change still has a working cookie.
+- **`tests/ui/login.test.tsx`:** remove the code-field assertions. The create form shows when `configured` is false,
+  and only the sign-in form shows when it is true.
+- **New UI test for Settings → Sign-in:** the change form when configured; mismatched or short input disables the
+  button; a server error shows; success clears the fields. The set form shows when not configured.
+- **`tests/routes.test.ts`** (or wherever routes are tested): `/settings/sign-in` resolves.
+- **`tests/integration.ts`:** remove the setup-code lines from the first-run block and keep the atomic-insert checks.
+- **`tests/smoke.ts`:** keep the 409 check for an installation that already has a passphrase. Remove `setupCode` from
+  the "well formed" check.
 
-## Verification on staging
+## Docs (same pull request)
 
-Staging normally has no passphrase. With `ALLOW_LAN` off it stays open (unchanged). To try the LAN flow use a
-throwaway passphrase only: clear any passphrase (`./scripts/set-passphrase.sh staging --clear`), start staging in LAN
-mode or set `alwaysRequired` via env for the check, see the create form, set a random passphrase, confirm sign-out and
-sign-in, confirm a second setup is refused, then `--clear` again. Never touch production's passphrase; after
-promotion only confirm that production still shows the plain sign-in form.
+- **`docs/specs/02-foundation.md` "Sign-in":** no scripts; the setup and change endpoints; the status fields; the two
+  accepted trade-offs; updated acceptance checks.
+- **`docs/specs/09-settings-navigation-and-private-mode.md`:** the sign-in page's create form, and the new Settings →
+  Sign-in page.
+- **`docs/specs/10-operations-and-release.md`:** remove `set-passphrase.sh` and `setup-code.sh`.
+- **`docs/development/OPERATIONS.md` "Sign-in":** first run in the browser, change in Settings, the manual recovery
+  command, and "create the passphrase right after the first LAN deploy".
+- **`CLAUDE.md`:** the safety rule names `./scripts/set-passphrase.sh` and uses `--clear` for staging tests. Reword it
+  so the maintainer sets the passphrase in the UI, and so staging tests create a throwaway passphrase through
+  `/api/auth/setup` and clear it with the recovery command. Grep the repo for any other mention of either script
+  (`README.md`, `TODO.md`, `scripts/scan-secrets.sh`, `CONTRIBUTING.md`).
+- Set this file's status line to "implemented" when done.
 
-## Docs to update in the same pull request
+## Verify on staging
 
-- `docs/specs/02-foundation.md` "Sign-in": the setup endpoint, `status` fields, the setup-code rules, new acceptance
-  checks.
-- `docs/specs/09-settings-navigation-and-private-mode.md` "Sign-in page" (and Settings if step 4 is done).
-- `docs/development/OPERATIONS.md` "Sign-in": first run in the browser; `set-passphrase.sh` for change, clear and
-  recovery.
-- `README.md` quick start if it mentions setting the passphrase; `TODO.md` if it lists this.
+1. `./scripts/ship.sh --stage-only`.
+2. Staging is open (no LAN), so: open Settings → Sign-in, set a random throwaway passphrase, and check that the app
+   then asks for it.
+3. Sign in, change the passphrase in Settings, and check that you stay signed in while a second browser or curl session
+   is signed out.
+4. Run the recovery command on staging and check that the app is open again with no passphrase.
+
+Never touch production's passphrase. After a promotion, only check that production still shows the plain sign-in
+page.
