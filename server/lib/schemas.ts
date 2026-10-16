@@ -15,6 +15,12 @@ export const createAccountBody = z.object({
   balance: requiredAmount,
 });
 
+/** POST /api/auth/setup: the first passphrase, and the one-time setup code where the app is open on the LAN. */
+export const setupBody = z.object({
+  passphrase: z.string(),
+  code: z.string().optional(),
+});
+
 export const manualBalance = requiredAmount;
 
 export const HOLDING_CLASSES = ['Equities', 'Bonds', 'Cash', 'Other'] as const;

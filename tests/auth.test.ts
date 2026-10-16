@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { contentSecurityPolicy, createApp } from '../server/app.ts';
 import { hashPassphrase, verifyPassphrase } from '../server/auth/passphrase.ts';
 import { MemoryAuthStore } from '../server/auth/store.ts';
+import { hashSetupCode, newSetupCode } from '../server/auth/setup-code.ts';
 import { readCookie, sessionCookie } from '../server/auth/service.ts';
 
 const PASS = 'correct horse battery staple';
@@ -48,7 +49,13 @@ test('once a passphrase is set the API requires a session, except health and sta
   assert.equal((await app.inject({ method: 'POST', url: '/api/sync', headers })).statusCode, 401);
   assert.equal((await app.inject({ method: 'GET', url: '/api/health', headers })).statusCode, 200);
   const status = await app.inject({ method: 'GET', url: '/api/auth/status', headers });
-  assert.deepEqual(status.json(), { required: true, configured: true, authenticated: false });
+  assert.deepEqual(status.json(), {
+    required: true,
+    configured: true,
+    authenticated: false,
+    setup: false,
+    setupCode: false,
+  });
   await app.close();
 });
 
@@ -73,6 +80,8 @@ test('wrong passphrase is rejected; the right one gives a working session cookie
       required: true,
       configured: true,
       authenticated: true,
+      setup: false,
+      setupCode: false,
     },
   );
   // A request that carries the cookie gets past the gate (the unknown path then 404s).
@@ -124,7 +133,13 @@ test('changing the passphrase signs every device out', async () => {
 test('with no passphrase and localhost-only mode the app stays open', async () => {
   const app = await createApp({ authStore: new MemoryAuthStore(), failureDelayMs: 0 });
   const status = await app.inject({ method: 'GET', url: '/api/auth/status', headers });
-  assert.deepEqual(status.json(), { required: false, configured: false, authenticated: false });
+  assert.deepEqual(status.json(), {
+    required: false,
+    configured: false,
+    authenticated: false,
+    setup: false,
+    setupCode: false,
+  });
   assert.equal((await app.inject({ method: 'GET', url: '/api/nope', headers })).statusCode, 404);
   assert.equal((await login(app, PASS)).statusCode, 503);
   await app.close();
@@ -158,4 +173,140 @@ test('responses carry security headers, and the policy allows only the inline sc
   assert.match(policy, new RegExp(`'sha256-${hash.replace(/[+/=]/g, '\\$&')}'`));
   assert.equal(policy.match(/sha256-/g)?.length, 1);
   assert.doesNotMatch(policy, /unsafe-eval|script-src[^;]*unsafe-inline/);
+});
+
+// First-run setup in the browser.
+const post = (app: any, url: string, payload: unknown, remoteAddress?: string) =>
+  app.inject({ method: 'POST', url, headers, payload, remoteAddress });
+const setup = (app: any, passphrase: unknown, code?: string, remoteAddress?: string) =>
+  post(app, '/api/auth/setup', { passphrase, code }, remoteAddress);
+
+async function lanAppWithCode() {
+  const store = new MemoryAuthStore();
+  const { code, record } = newSetupCode();
+  store.setupCode = record;
+  return { store, code, app: await createApp({ authStore: store, failureDelayMs: 0, lan: true }) };
+}
+
+test('setup codes look like XXXX-XXXX, are stored only as a hash, and ignore dashes and case', () => {
+  const { code, record } = newSetupCode();
+  assert.match(code, /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+  assert.ok(!JSON.stringify(record).includes(code.replace('-', '')));
+  assert.equal(record.hash, hashSetupCode(code.toLowerCase().replace('-', ' ')));
+  assert.notEqual(newSetupCode().code, code);
+});
+
+test('with the app open on the LAN and no passphrase, the status offers setup with a code', async () => {
+  const { app } = await lanAppWithCode();
+  const status = await app.inject({ method: 'GET', url: '/api/auth/status', headers });
+  assert.deepEqual(status.json(), {
+    required: true,
+    configured: false,
+    authenticated: false,
+    setup: true,
+    setupCode: true,
+  });
+  // Nothing but the open endpoints answers before setup.
+  assert.equal(
+    (await app.inject({ method: 'GET', url: '/api/overview', headers })).statusCode,
+    401,
+  );
+  assert.equal((await login(app, PASS)).statusCode, 503);
+  await app.close();
+});
+
+test('setup with the right code stores the passphrase, signs in, and uses the code up', async () => {
+  const { app, store, code } = await lanAppWithCode();
+  const ok = await setup(app, PASS, code.toLowerCase());
+  assert.equal(ok.statusCode, 200);
+  const cookie = String(ok.headers['set-cookie']).split(';')[0];
+  assert.match(String(ok.headers['set-cookie']), /HttpOnly; SameSite=Strict/);
+  assert.equal(
+    (await app.inject({ method: 'GET', url: '/api/nope', headers: { ...headers, cookie } }))
+      .statusCode,
+    404,
+  );
+  assert.equal(store.setupCode, null);
+  assert.ok(!JSON.stringify(store.passphrase).includes(PASS));
+  // The passphrase now works for sign-in, and setup is closed for good.
+  assert.equal((await login(app, PASS)).statusCode, 200);
+  assert.equal((await setup(app, 'a different passphrase', code)).statusCode, 409);
+  assert.equal((await login(app, 'a different passphrase')).statusCode, 401);
+  await app.close();
+});
+
+test('setup is refused without the right code, and a wrong code stores nothing', async () => {
+  const { app, store, code } = await lanAppWithCode();
+  for (const bad of [undefined, '', 'AAAA-AAAA']) {
+    const r = await setup(app, PASS, bad);
+    assert.equal(r.statusCode, 403);
+    assert.equal(r.headers['set-cookie'], undefined);
+  }
+  assert.equal(store.passphrase, null);
+  // A short passphrase with the right code is refused and the code survives.
+  const short = await setup(app, 'short', code);
+  assert.equal(short.statusCode, 400);
+  assert.match(short.json().error, /at least 12/);
+  assert.ok(store.setupCode);
+  assert.equal((await setup(app, PASS, code)).statusCode, 200);
+  await app.close();
+});
+
+test('an expired or missing setup code is refused with a hint', async () => {
+  const { app, store, code } = await lanAppWithCode();
+  store.setupCode = { ...store.setupCode!, expiresAt: new Date(Date.now() - 1000).toISOString() };
+  const expired = await setup(app, PASS, code);
+  assert.equal(expired.statusCode, 403);
+  assert.match(expired.json().error, /setup-code\.sh/);
+  store.setupCode = null;
+  assert.equal((await setup(app, PASS, code)).statusCode, 403);
+  assert.equal(store.passphrase, null);
+  await app.close();
+});
+
+test('wrong setup codes count toward the lockout, per address', async () => {
+  const { app, code } = await lanAppWithCode();
+  for (let i = 0; i < 5; i++)
+    assert.equal((await setup(app, PASS, 'AAAA-AAAA', '10.1.1.1')).statusCode, 403);
+  const locked = await setup(app, PASS, code, '10.1.1.1');
+  assert.equal(locked.statusCode, 429);
+  assert.equal((await setup(app, PASS, code, '10.2.2.2')).statusCode, 200);
+  await app.close();
+});
+
+test('setup never overwrites an existing passphrase or signs anyone out', async () => {
+  const { app, store } = await appWithPassphrase();
+  const cookie = String((await login(app, PASS)).headers['set-cookie']).split(';')[0];
+  const before = JSON.stringify(store.passphrase);
+  const r = await setup(app, 'another long passphrase');
+  assert.equal(r.statusCode, 409);
+  assert.equal(JSON.stringify(store.passphrase), before);
+  assert.equal(store.sessions.size, 1);
+  assert.equal(
+    (await app.inject({ method: 'GET', url: '/api/nope', headers: { ...headers, cookie } }))
+      .statusCode,
+    404,
+  );
+  await app.close();
+});
+
+test('two setups at once: exactly one wins', async () => {
+  const { app, store, code } = await lanAppWithCode();
+  const [a, b] = await Promise.all([
+    setup(app, 'first long passphrase', code),
+    setup(app, 'second long passphrase', code),
+  ]);
+  assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+  assert.equal(store.sessions.size, 1);
+  await app.close();
+});
+
+test('localhost-only mode needs no code to choose the first passphrase', async () => {
+  const store = new MemoryAuthStore();
+  const app = await createApp({ authStore: store, failureDelayMs: 0 });
+  assert.equal((await setup(app, 'short')).statusCode, 400);
+  assert.equal((await setup(app, PASS)).statusCode, 200);
+  assert.equal((await setup(app, PASS)).statusCode, 409);
+  assert.equal((await post(app, '/api/auth/setup', {})).statusCode, 400);
+  await app.close();
 });

@@ -1,7 +1,14 @@
 import type { FastifyInstance } from 'fastify';
+import { setupBody } from '../lib/schemas.ts';
 import { clearedCookie, sessionCookie, type AuthService } from '../auth/service.ts';
 
-const OPEN = ['/api/health', '/api/auth/status', '/api/auth/login', '/api/auth/logout'];
+const OPEN = [
+  '/api/health',
+  '/api/auth/status',
+  '/api/auth/login',
+  '/api/auth/setup',
+  '/api/auth/logout',
+];
 
 export function authRoutes(app: FastifyInstance, auth: AuthService) {
   // Everything under /api needs a session, except the open endpoints, once sign-in is required.
@@ -13,12 +20,20 @@ export function authRoutes(app: FastifyInstance, auth: AuthService) {
       return reply.code(401).send({
         error: status.configured
           ? 'Sign in required'
-          : 'No passphrase is set yet. Run ./scripts/set-passphrase.sh on the computer hosting the app.',
+          : 'No passphrase is set yet. Open the app in a browser to create one.',
       });
   });
   app.get('/api/auth/status', async (req) => auth.status(req.headers.cookie));
   app.post('/api/auth/login', async (req, reply) => {
     const token = await auth.login((req.body as any)?.passphrase, req.ip);
+    const secure = req.headers['x-forwarded-proto'] === 'https';
+    reply.header('Set-Cookie', sessionCookie(token, secure));
+    return { ok: true };
+  });
+  app.post('/api/auth/setup', async (req, reply) => {
+    const body = setupBody.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Enter a passphrase' });
+    const token = await auth.setup(body.data.passphrase, body.data.code, req.ip);
     const secure = req.headers['x-forwarded-proto'] === 'https';
     reply.header('Set-Cookie', sessionCookie(token, secure));
     return { ok: true };

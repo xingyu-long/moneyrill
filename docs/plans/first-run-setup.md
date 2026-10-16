@@ -1,6 +1,6 @@
 # First-run passphrase setup in the UI
 
-Status: planned, not started; the open decision is settled (setup code in LAN mode). Written 2026-10-15 for a later session to carry out on `feature/first-run-setup`.
+Status: implemented on `feature/first-run-setup` (step 4, the Settings entry for localhost-only mode, was left out); the open decision is settled (setup code in LAN mode). Written 2026-10-15 for a later session to carry out on `feature/first-run-setup`.
 
 Today the passphrase can only be set on the host with `./scripts/set-passphrase.sh`, and the login page tells you to
 run it. The goal: on a **fresh installation** (no passphrase stored yet) the login page lets you choose the passphrase

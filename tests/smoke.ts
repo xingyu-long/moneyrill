@@ -62,9 +62,24 @@ try {
     'sign-in status is well formed',
     status.status === 200 &&
       typeof sign?.required === 'boolean' &&
-      typeof sign?.configured === 'boolean',
+      typeof sign?.configured === 'boolean' &&
+      typeof sign?.setup === 'boolean' &&
+      typeof sign?.setupCode === 'boolean',
     JSON.stringify(sign),
   );
+  if (sign?.configured) {
+    // Setup must never replace a passphrase. The body is a throwaway; nothing is stored when it is refused.
+    const res = await fetch(base + '/api/auth/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase: 'smoke-test-not-a-real-passphrase' }),
+    });
+    add(
+      'first-run setup is closed once a passphrase exists',
+      res.status === 409,
+      `status ${res.status}`,
+    );
+  }
   if (mode === 'production')
     add('production requires sign-in', sign?.required === true, `required=${sign?.required}`);
 

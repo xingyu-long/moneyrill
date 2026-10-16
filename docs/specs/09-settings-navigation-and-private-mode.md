@@ -120,7 +120,11 @@ before first paint. Zen night (dark) is the default look; tokens in [00](00-prin
 
 Shown instead of the app when sign-in is required and there is no session ([02](02-foundation.md#sign-in)): the same Zen look,
 a passphrase field, the error text from the server (including the lockout message), and the version line
-(`v <commit> · built <time>`). When no passphrase exists it says how to set one on the host.
+(`v <commit> · built <time>`). When no passphrase exists (`status.configured` false) it shows **Create a passphrase**
+instead: a **Setup code** field (only when `status.setupCode`; it says where the code is shown and how to get a new
+one), **New passphrase** (12+ characters) and **Repeat the passphrase**. The button is enabled only when the code is
+filled, the passphrase is long enough and both match; the server's error shows in the alert. On success the app loads
+signed in. Once a passphrase exists no device ever sees this form ([02](02-foundation.md#sign-in)).
 
 ## Choices kept on a device
 

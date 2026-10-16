@@ -31,6 +31,11 @@ check_instance() {
   exit 1
 }
 case "$environment" in staging | production) check_instance "$environment";; esac
+# With the app open on the LAN a fresh installation has no passphrase yet: print the one-time code to choose it in the browser.
+print_setup_code() { # $1 = staging | production, $2 = lan_files output
+  [ -n "$2" ] || return 0
+  ./scripts/setup-code.sh "$1" || printf 'Could not create a setup code; run ./scripts/setup-code.sh %s later.\n' "$1" >&2
+}
 mkdir -p .releases
 case "$environment" in
  staging)
@@ -47,6 +52,7 @@ case "$environment" in
   docker image rm "$test_image" >/dev/null 2>&1 || true
   case "$tests_out" in *'# tests 0'*|'') printf '%s\n' 'The image ran no unit tests.' >&2; exit 1;; esac
   APP_IMAGE="$image" docker compose $(lan_files .env compose.lan.yaml) up -d --wait
+  print_setup_code staging "$(lan_files .env compose.lan.yaml)"
   printf '%s\n' "$image" > .releases/staging-image
   docker image inspect --format '{{.Id}}' "$image" > .releases/staging-image-id
   printf 'Staging ready at http://localhost:3002\nAfter validation, promote this exact image:\n./scripts/deploy.sh production %s\n' "$image"
@@ -72,6 +78,7 @@ case "$environment" in
    cp .releases/production-image .releases/previous-production-image
   fi
   APP_IMAGE="$image" docker compose --env-file .env.production -f compose.production.yaml $(lan_files .env.production compose.production.lan.yaml -f) up -d --wait
+  print_setup_code production "$(lan_files .env.production compose.production.lan.yaml -f)"
   printf '%s\n' "$image" > .releases/production-image
   printf '%s\n' 'Production ready at http://localhost:3003. Staging data was not copied.'
   ;;

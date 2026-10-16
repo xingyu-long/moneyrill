@@ -1,9 +1,14 @@
 import { pool } from '../db/pool.ts';
 import type { PassphraseRecord } from './passphrase.ts';
+import type { SetupCodeRecord } from './setup-code.ts';
 
 export interface AuthStore {
   getPassphrase(): Promise<PassphraseRecord | null>;
   setPassphrase(record: PassphraseRecord | null): Promise<void>;
+  /** First-run setup: stores the passphrase only if none exists. False when one was already there. */
+  createPassphrase(record: PassphraseRecord): Promise<boolean>;
+  getSetupCode(): Promise<SetupCodeRecord | null>;
+  setSetupCode(record: SetupCodeRecord | null): Promise<void>;
   createSession(tokenHash: string, expiresAt: Date): Promise<void>;
   hasSession(tokenHash: string): Promise<boolean>;
   deleteSession(tokenHash: string): Promise<void>;
@@ -27,6 +32,33 @@ export class DbAuthStore implements AuthStore {
     }
     // Changing or clearing the passphrase signs every device out.
     await pool.query('DELETE FROM sessions');
+  }
+  async createPassphrase(record: PassphraseRecord) {
+    // The insert is the gate: of two racing setups only one adds the row.
+    const added = await pool.query(
+      "INSERT INTO settings(key,value) VALUES('auth_passphrase',$1) ON CONFLICT(key) DO NOTHING",
+      [JSON.stringify(record)],
+    );
+    if (added.rowCount !== 1) return false;
+    await pool.query('DELETE FROM sessions');
+    await this.setSetupCode(null);
+    return true;
+  }
+  async getSetupCode() {
+    const row = (await pool.query("SELECT value FROM settings WHERE key='auth_setup_code'"))
+      .rows[0];
+    return (row?.value as SetupCodeRecord) ?? null;
+  }
+  async setSetupCode(record: SetupCodeRecord | null) {
+    if (record === null) {
+      await pool.query("DELETE FROM settings WHERE key='auth_setup_code'");
+    } else {
+      await pool.query(
+        `INSERT INTO settings(key,value) VALUES('auth_setup_code',$1)
+         ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
+        [JSON.stringify(record)],
+      );
+    }
   }
   async createSession(tokenHash: string, expiresAt: Date) {
     await pool.query('DELETE FROM sessions WHERE expires_at < now()');
@@ -52,9 +84,23 @@ export class DbAuthStore implements AuthStore {
 /** In-memory store for tests. */
 export class MemoryAuthStore implements AuthStore {
   passphrase: PassphraseRecord | null = null;
+  setupCode: SetupCodeRecord | null = null;
   sessions = new Map<string, Date>();
   async getPassphrase() {
     return this.passphrase;
+  }
+  async createPassphrase(record: PassphraseRecord) {
+    if (this.passphrase) return false;
+    this.passphrase = record;
+    this.sessions.clear();
+    this.setupCode = null;
+    return true;
+  }
+  async getSetupCode() {
+    return this.setupCode;
+  }
+  async setSetupCode(record: SetupCodeRecord | null) {
+    this.setupCode = record;
   }
   async setPassphrase(record: PassphraseRecord | null) {
     this.passphrase = record;

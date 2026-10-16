@@ -4,12 +4,22 @@ import userEvent from '@testing-library/user-event';
 import App from '../../src/App.tsx';
 import { overview } from './fixture.ts';
 
-type Session = { authenticated: boolean; configured: boolean; passphrase: string };
+type Session = {
+  authenticated: boolean;
+  configured: boolean;
+  passphrase: string;
+  setupCode: string | null;
+};
 let session: Session;
 const calls: string[] = [];
 
 beforeEach(() => {
-  session = { authenticated: false, configured: true, passphrase: 'correct horse battery' };
+  session = {
+    authenticated: false,
+    configured: true,
+    passphrase: 'correct horse battery',
+    setupCode: null,
+  };
   calls.length = 0;
   vi.stubGlobal(
     'fetch',
@@ -26,7 +36,19 @@ beforeEach(() => {
           required: true,
           configured: session.configured,
           authenticated: session.authenticated,
+          setup: !session.configured,
+          setupCode: !session.configured && session.setupCode !== null,
         });
+      if (path === '/api/auth/setup') {
+        const body = JSON.parse(init.body);
+        if (session.configured) return reply(409, { error: 'A passphrase is already set' });
+        if (session.setupCode !== null && body.code !== session.setupCode)
+          return reply(403, { error: 'Incorrect setup code' });
+        session.passphrase = body.passphrase;
+        session.configured = true;
+        session.authenticated = true;
+        return reply(200, { ok: true });
+      }
       if (path === '/api/auth/login') {
         if (JSON.parse(init.body).passphrase !== session.passphrase)
           return reply(401, { error: 'Incorrect passphrase' });
@@ -75,11 +97,50 @@ describe('sign-in', () => {
     expect(screen.queryByText('TOTAL NET WORTH')).toBeNull();
   });
 
-  it('tells you how to set a passphrase when none exists yet', async () => {
-    session.configured = false;
+  it('offers no way to create a passphrase when one exists', async () => {
     render(<App />);
-    expect(await screen.findByText(/set-passphrase\.sh/)).toBeInTheDocument();
+    await screen.findByLabelText('Passphrase');
+    expect(screen.queryByLabelText('New passphrase')).toBeNull();
+    expect(screen.queryByLabelText('Repeat the passphrase')).toBeNull();
+    expect(screen.queryByLabelText('Setup code')).toBeNull();
+  });
+
+  it('on first run lets you choose the passphrase, with the setup code, and signs you in', async () => {
+    session.configured = false;
+    session.setupCode = 'ABCD-2345';
+    const user = userEvent.setup();
+    render(<App />);
+    const create = await screen.findByRole('button', { name: 'Create passphrase' });
     expect(screen.queryByLabelText('Passphrase')).toBeNull();
+    expect(create).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Setup code'), 'WRONG-CODE');
+    await user.type(screen.getByLabelText('New passphrase'), 'a brand new passphrase');
+    await user.type(screen.getByLabelText('Repeat the passphrase'), 'a brand new passphras');
+    expect(screen.getByText('The passphrases do not match.')).toBeInTheDocument();
+    expect(create).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Repeat the passphrase'), 'e');
+    await user.click(create);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Incorrect setup code');
+    expect(screen.queryByText('TOTAL NET WORTH')).toBeNull();
+
+    await user.clear(screen.getByLabelText('Setup code'));
+    await user.type(screen.getByLabelText('Setup code'), 'ABCD-2345');
+    await user.click(create);
+    expect(await screen.findByText('TOTAL NET WORTH')).toBeInTheDocument();
+    expect(session.passphrase).toBe('a brand new passphrase');
+  });
+
+  it('asks for no setup code where the server does not, and holds back a short passphrase', async () => {
+    session.configured = false;
+    const user = userEvent.setup();
+    render(<App />);
+    const create = await screen.findByRole('button', { name: 'Create passphrase' });
+    expect(screen.queryByLabelText('Setup code')).toBeNull();
+    await user.type(screen.getByLabelText('New passphrase'), 'too short');
+    await user.type(screen.getByLabelText('Repeat the passphrase'), 'too short');
+    expect(create).toBeDisabled();
   });
 
   it('falls back to the sign-in page if the session expires while using the app', async () => {

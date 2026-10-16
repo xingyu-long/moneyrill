@@ -166,6 +166,8 @@ export function useAppModel() {
     required: false,
     configured: false,
     authenticated: false,
+    setup: false,
+    setupCode: false,
   });
   const production = data.mode === 'production';
   const environmentName = production ? 'Production' : 'Staging';
@@ -228,6 +230,8 @@ export function useAppModel() {
         required: !!s.required,
         configured: !!s.configured,
         authenticated: !!s.authenticated,
+        setup: !!s.setup,
+        setupCode: !!s.setupCode,
       });
       if (!s.required || s.authenticated) await load();
       else setLoading(false);
@@ -239,6 +243,12 @@ export function useAppModel() {
   }
   async function signIn(passphrase: string) {
     await api('/auth/login', { passphrase });
+    setLoading(true);
+    await checkAuth();
+  }
+  /** First run: choose the passphrase (with the setup code where the server asks for one) and sign in. */
+  async function setUp(passphrase: string, code: string) {
+    await api('/auth/setup', { passphrase, code });
     setLoading(true);
     await checkAuth();
   }
@@ -474,6 +484,7 @@ export function useAppModel() {
     version,
     auth,
     signIn,
+    setUp,
     signOut,
     environmentName,
     load,

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Set or change the sign-in passphrase (typed here, never stored in a file or shell history).
+# Set, change or clear the sign-in passphrase (typed here, never stored in a file or shell history).
+# A fresh installation can also create its first one in the browser: see setup-code.sh.
 #   ./scripts/set-passphrase.sh production      set / change
 #   ./scripts/set-passphrase.sh staging --clear remove it
 set -eu

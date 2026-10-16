@@ -42,7 +42,9 @@ export function contentSecurityPolicy(indexHtml: string | null) {
   ].join('; ');
 }
 
-export async function createApp(opts: { authStore?: AuthStore; failureDelayMs?: number } = {}) {
+export async function createApp(
+  opts: { authStore?: AuthStore; failureDelayMs?: number; lan?: boolean } = {},
+) {
   const app = Fastify({
     logger: false,
     bodyLimit: 12 * 1024 * 1024,
@@ -82,7 +84,7 @@ export async function createApp(opts: { authStore?: AuthStore; failureDelayMs?: 
     return reply.code(error.statusCode || 400).send({ error: code });
   });
   const auth = new AuthService(opts.authStore ?? new DbAuthStore(), {
-    alwaysRequired: config.allowLan,
+    alwaysRequired: opts.lan ?? config.allowLan,
     failureDelayMs: opts.failureDelayMs,
   });
   authRoutes(app, auth);

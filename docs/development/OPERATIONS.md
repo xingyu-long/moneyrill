@@ -50,19 +50,23 @@ BIND_ADDRESS=192.168.1.20   # this computer's Wi-Fi address (not 0.0.0.0)
 ALLOW_LAN=true
 ```
 
-Open `http://<this-computer's-LAN-IP>:3003` (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. With LAN access on, **sign-in is mandatory**: nothing under `/api` answers without a session, and until a passphrase exists the app shows how to set one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
+Open `http://<this-computer's-LAN-IP>:3003` (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. With LAN access on, **sign-in is mandatory**: nothing under `/api` answers without a session, and until a passphrase exists the app offers to create one with the one-time setup code. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
 
 ## Sign-in (passphrase)
 
-One passphrase for one person, no accounts. Set or change it on the computer running the app (typed hidden, never saved to a file or shell history):
+One passphrase for one person, no accounts.
+
+**First run (LAN mode).** On a fresh installation with `ALLOW_LAN=true` there is no passphrase yet, so the sign-in page offers **Create a passphrase** instead. `deploy.sh` prints a one-time setup code (`XXXX-XXXX`, valid for 1 hour, usable once) on the computer running the app; enter it with the new passphrase (12+ characters, typed twice) and you are signed in. If the code expired or was lost, print a new one with `./scripts/setup-code.sh production` (staging works the same; it does nothing once a passphrase exists). Without LAN mode the app is open on localhost until you set one. Once a passphrase exists the page only ever asks for it: the browser cannot change or clear it.
+
+**Change, clear or recover it** only on the computer running the app (typed hidden, never saved to a file or shell history):
 
 ```sh
 ./scripts/set-passphrase.sh production        # staging works the same
-./scripts/set-passphrase.sh production --clear  # remove it (with LAN mode on, access then stays blocked until a new one is set)
+./scripts/set-passphrase.sh production --clear  # remove it (with LAN mode on, access then stays blocked until a new one is created in the browser with a code from `./scripts/setup-code.sh`, or set here)
 ```
 
 - Stored as a salted scrypt hash; the browser gets a random session token in an `HttpOnly`, `SameSite=Strict` cookie (30 days). Only a hash of the token is kept in the database.
-- Five wrong attempts from the same address lock sign-in from that address for 15 minutes; other addresses are not affected (restart the app container to clear it). Behind a reverse proxy set `TRUST_PROXY=true` so each client counts separately.
+- Five wrong attempts (passphrase or setup code) from the same address lock sign-in and setup from that address for 15 minutes; other addresses are not affected (restart the app container to clear it). Behind a reverse proxy set `TRUST_PROXY=true` so each client counts separately.
 - Changing or clearing the passphrase signs every device out. **Sign out** is in the top bar.
 - Required automatically when `ALLOW_LAN=true`; otherwise optional (the app stays open on localhost until you set a passphrase).
 - Every response carries a Content-Security-Policy (scripts only from the app itself, one hashed inline script and Plaid Link), `X-Frame-Options: DENY`, `nosniff` and no referrer. The container runs as an unprivileged user.
