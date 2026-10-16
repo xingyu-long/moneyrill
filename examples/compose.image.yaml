@@ -4,7 +4,7 @@
 #   mkdir moneyrill && cd moneyrill && curl -O <raw URL of this file>
 #   openssl rand -hex 32 > token.key && chmod 600 token.key
 #   MONEYRILL_VERSION=0.1.0 docker compose -f compose.image.yaml up -d
-#   open http://localhost:3002
+#   open http://localhost:3002        (STAGING_PORT in the environment or a .env next to this file changes the port)
 #
 # This is the demo setup: simulated data and Plaid Sandbox. Keep token.key: it encrypts the bank tokens, and
 # the data in the database volume is unreadable without it.
@@ -26,12 +26,12 @@ services:
   app:
     restart: unless-stopped
     image: ghcr.io/xingyu-long/moneyrill:${MONEYRILL_VERSION:?Set MONEYRILL_VERSION to a released version, e.g. 0.1.0}
-    ports: ['127.0.0.1:3002:3002'] # loopback only: do not publish this to the internet
+    ports: ['127.0.0.1:${STAGING_PORT:-3002}:3002'] # loopback only: do not publish this to the internet
     environment:
       DATABASE_URL: postgres://moneyrill:${POSTGRES_PASSWORD:-local-demo-only}@db:5432/moneyrill
       APP_ENV: staging
       PLAID_ENV: sandbox
-      PUBLIC_ORIGIN: http://localhost:3002
+      PUBLIC_ORIGIN: http://localhost:${STAGING_PORT:-3002}
       KEY_FILE: /run/secrets/token_key
       PORT: 3002
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
@@ -57,7 +57,7 @@ services:
       DATABASE_URL: postgres://moneyrill:${POSTGRES_PASSWORD:-local-demo-only}@db:5432/moneyrill
       APP_ENV: staging
       PLAID_ENV: sandbox
-      PUBLIC_ORIGIN: http://localhost:3002
+      PUBLIC_ORIGIN: http://localhost:${STAGING_PORT:-3002}
       KEY_FILE: /run/secrets/token_key
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
       PLAID_SECRET: ${PLAID_SECRET:-}

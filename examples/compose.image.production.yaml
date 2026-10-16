@@ -4,7 +4,7 @@
 #   openssl rand -hex 32 > production.key && chmod 600 production.key
 #   Create .env.production (see OPERATIONS.md) with PLAID_CLIENT_ID, PLAID_SECRET and POSTGRES_PASSWORD.
 #   MONEYRILL_VERSION=0.1.0 docker compose --env-file .env.production -f compose.image.production.yaml up -d
-#   open http://localhost:3003
+#   open http://localhost:3003        (PRODUCTION_PORT in .env.production changes the port)
 #
 # Back up production.key and .env.production together with your database backups: the key encrypts the bank
 # tokens, and the database password cannot be changed by editing the file once the volume exists.
@@ -28,13 +28,13 @@ services:
   app:
     restart: unless-stopped
     image: ghcr.io/xingyu-long/moneyrill:${MONEYRILL_VERSION:?Set MONEYRILL_VERSION to a released version, e.g. 0.1.0}
-    ports: ['${BIND_ADDRESS:-127.0.0.1}:3003:3002'] # loopback unless BIND_ADDRESS is set to a private LAN address; never 0.0.0.0
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:${PRODUCTION_PORT:-3003}:3002'] # loopback unless BIND_ADDRESS is set to a private LAN address; never 0.0.0.0
     env_file: .env.production
     environment:
       DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
       APP_ENV: production
       PLAID_ENV: production
-      PUBLIC_ORIGIN: http://localhost:3003
+      PUBLIC_ORIGIN: http://localhost:${PRODUCTION_PORT:-3003}
       KEY_FILE: /run/secrets/token_key
       PORT: 3002
       ALLOW_LAN: ${ALLOW_LAN:-false}
@@ -60,7 +60,7 @@ services:
       DATABASE_URL: postgres://${INSTANCE_NAME:-moneyrill}:${POSTGRES_PASSWORD}@db:5432/${INSTANCE_NAME:-moneyrill}
       APP_ENV: production
       PLAID_ENV: production
-      PUBLIC_ORIGIN: http://localhost:3003
+      PUBLIC_ORIGIN: http://localhost:${PRODUCTION_PORT:-3003}
       KEY_FILE: /run/secrets/token_key
     secrets: [token_key]
     depends_on:

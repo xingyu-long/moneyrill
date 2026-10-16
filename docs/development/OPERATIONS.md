@@ -49,7 +49,7 @@ MONEYRILL_VERSION=0.1.0 docker compose -f compose.image.yaml up -d
 open http://localhost:3002                                    # Linux: xdg-open
 ```
 
-Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run `up -d` again (migrations are additive and run on start; take a backup first). Sandbox keys go in `PLAID_CLIENT_ID` and `PLAID_SECRET` in the environment or a `.env` file next to the compose file. `docker compose -f compose.image.yaml down` stops it; add `-v` to delete the data.
+Pin the version you tested; to upgrade, set a newer `MONEYRILL_VERSION` and run `up -d` again (migrations are additive and run on start; take a backup first). Sandbox keys go in `PLAID_CLIENT_ID` and `PLAID_SECRET` in the environment or a `.env` file next to the compose file. `docker compose -f compose.image.yaml down` stops it; add `-v` to delete the data. For another port, set `STAGING_PORT` in the environment or in a `.env` next to the compose file.
 
 ### With real accounts
 
@@ -67,7 +67,7 @@ ENV
 MONEYRILL_VERSION=0.1.0 docker compose --env-file .env.production -f compose.image.production.yaml up -d
 ```
 
-Then open http://localhost:3003 and **create the sign-in passphrase right away** (see [Sign-in](#sign-in-passphrase)): until one exists, whoever opens the page first can choose it.
+Then open http://localhost:3003 (or your `PRODUCTION_PORT` from `.env.production`) and **create the sign-in passphrase right away** (see [Sign-in](#sign-in-passphrase)): until one exists, whoever opens the page first can choose it.
 
 Keep `.env.production` and `production.key` private and back them up with your database. Every later `docker compose` command needs the same `--env-file .env.production`. This setup has no staging step, backup job, migration rehearsal or rollback: [back up](#back-up-and-restore-everything-migration) before upgrading and keep the previous `MONEYRILL_VERSION` to go back. For those safeguards, run from the source checkout. Do not create real Plaid connections just to test; Plaid's free trial allows only a few.
 
