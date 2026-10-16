@@ -163,10 +163,8 @@ export function useAppModel() {
   const [version, setVersion] = useState<{ commit: string; builtAt: string | null } | null>(null);
   const [auth, setAuth] = useState({
     checked: false,
-    required: false,
     configured: false,
     authenticated: false,
-    setup: false,
   });
   const production = data.mode === 'production';
   const environmentName = production ? 'Production' : 'Staging';
@@ -226,12 +224,10 @@ export function useAppModel() {
       const s = await api('/auth/status');
       setAuth({
         checked: true,
-        required: !!s.required,
         configured: !!s.configured,
         authenticated: !!s.authenticated,
-        setup: !!s.setup,
       });
-      if (!s.required || s.authenticated) await load();
+      if (s.authenticated) await load();
       else setLoading(false);
     } catch (e: any) {
       setError(e.message);

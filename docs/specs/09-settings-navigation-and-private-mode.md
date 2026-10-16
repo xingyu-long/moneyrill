@@ -30,7 +30,7 @@ One navigation, three looks:
 
 - **Above 1000px**: a sticky bar (blurred background) with the wordmark `money`+italic sage `rill` at the left linking to
   Home; in the middle a **pill of page names** (Home, Accounts, Investments, Transactions, Reports) with the current page
-  filled (primary colour, `aria-current="page"`); at the right a **Sign out** button (only when sign-in is required), the
+  filled (primary colour, `aria-current="page"`); at the right a **Sign out** button, the
   **environment badge** (`STAGING` in warning colour; production has none and shows a round **Sync accounts** button in its
   place, disabled with no active connection), a round
   **Search** button, the round **Private mode** button, and **Settings as a round gear button** at the far right.
@@ -72,12 +72,11 @@ header uses the page sentence ([08](08-home-and-headings.md#page-headings-srccom
    button, [08](08-home-and-headings.md#customize-home-settings--display-and-navigation--customize-home-also-reachable-from-an-empty-home)),
    and **Edit navigation** (the tab bar list: "N of 5", Home locked, move earlier / later, remove, and add from the remaining
    pages; add is disabled when full).
-6. **Sign-in** (`/settings/sign-in`, key icon): with a passphrase, **Change passphrase**: _Current passphrase_, _New
-   passphrase_ (12+ characters) and _Repeat the passphrase_. The button is enabled only when the current one is filled and the
-   new one is long enough and matches; the server's error shows in the alert (a wrong current passphrase, the lockout); on
-   success the fields clear and it says "Passphrase changed. Other devices were signed out." while this browser stays
-   signed in. With no passphrase yet (the app is open on this computer), **Set a passphrase**: new and repeat; afterwards
-   the app asks for it ([02](02-foundation.md#sign-in)).
+6. **Sign-in** (`/settings/sign-in`, key icon): **Change passphrase**: _Current passphrase_, _New passphrase_ (12+
+   characters) and _Repeat the passphrase_. The button is enabled only when the current one is filled and the new one is
+   long enough and matches; the server's error shows in the alert (a wrong current passphrase, the lockout); on success the
+   fields clear and it says "Passphrase changed. Other devices were signed out." while this browser stays signed in
+   ([02](02-foundation.md#sign-in)).
 
 Settings keeps its own Sync and Add an account buttons. The top bar's Sync button is production only; the Accounts page's
 Add an account is the only Add account button outside Settings (see [08](08-home-and-headings.md)).
@@ -124,7 +123,7 @@ before first paint. Zen night (dark) is the default look; tokens in [00](00-prin
 
 ## The sign-in page
 
-Shown instead of the app when sign-in is required and there is no session ([02](02-foundation.md#sign-in)): the same Zen look,
+Shown instead of the app when there is no session ([02](02-foundation.md#sign-in)): the same Zen look,
 a passphrase field, the error text from the server (including the lockout message), and the version line
 (`v <commit> · built <time>`). When no passphrase exists (`status.configured` false) it shows **Create a passphrase**
 instead: **New passphrase** (12+ characters) and **Repeat the passphrase**. The button is enabled only when the
@@ -152,7 +151,7 @@ the server.
 - Navigation (`tests/navigation.test.ts`): `parseBar` rejects too many, duplicates, Home and unknown tabs and falls back to the
   default; `move`, `addToBar` (full and duplicate), `removeFromBar`, `moreTabs` order.
 - UI (`tests/ui/topbar.test.tsx`, `tests/ui/routing.test.tsx`, `tests/ui/phone-layout.test.tsx`, `tests/ui/settings-nav.test.tsx`):
-  the pill, the gear, Sign out only when required, the environment badge (staging) or the Sync accounts button (production), search focusing Transactions; Back and Forward;
+  the pill, the gear, Sign out, the environment badge (staging) or the Sync accounts button (production), search focusing Transactions; Back and Forward;
   the phone bar widening, More, the settings list and back arrow; Edit navigation add, remove, move and the limit.
 - Private mode (`tests/ui/private.test.tsx`): amounts and share counts masked everywhere listed, percentages and public prices
   visible, the four actions disabled, the choice persisted and an old key read, no amount ever in an address.

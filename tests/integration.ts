@@ -1,6 +1,7 @@
 import { config } from '../server/lib/config.ts';
 if (config.production) throw new Error('Integration fixture tests must never use production');
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { pool } from '../server/db/pool.ts';
 import { DbAuthStore } from '../server/auth/store.ts';
 import { hashPassphrase } from '../server/auth/passphrase.ts';
@@ -10,14 +11,19 @@ import { excludeUnreturnedAccounts } from '../server/services/sync.ts';
 import { applyHoldingPrices, refreshSecurityPrices } from '../server/services/prices.ts';
 import { applyTransactionChanges, remapAutoCategories } from '../server/services/transactions.ts';
 const base = process.env.TEST_BASE_URL || 'http://localhost:3002';
+// Sign-in is always required: once the app is up, a throwaway passphrase is created on this disposable database
+// and its session cookie goes with every request.
+let cookie = '';
 async function request(route: string, body?: unknown, method?: string) {
   const r = await fetch(base + '/api' + route, {
     method: method || (body === undefined ? 'GET' : 'POST'),
-    ...(body === undefined
-      ? {}
-      : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    headers: {
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  return { status: r.status, data: await r.json() };
+  return { status: r.status, data: await r.json(), headers: r.headers };
 }
 for (let i = 0; i < 60; i++) {
   try {
@@ -26,6 +32,20 @@ for (let i = 0; i < 60; i++) {
     // not ready yet
   }
   await new Promise((r) => setTimeout(r, 500));
+}
+{
+  const passphrase = crypto.randomBytes(18).toString('base64url');
+  assert.equal((await request('/overview')).status, 401, 'data is blocked before sign-in');
+  const created = await request('/auth/setup', { passphrase });
+  assert.equal(created.status, 200);
+  cookie = String(created.headers.get('set-cookie')).split(';')[0];
+  assert.equal((await request('/overview')).status, 200, 'the new session works');
+  assert.equal((await request('/auth/setup', { passphrase: passphrase + 'x' })).status, 409);
+  assert.equal(
+    (await request('/auth/passphrase', { current: 'wrong', passphrase: passphrase + 'x' })).status,
+    401,
+  );
+  console.log('PASS: sign-in required, first passphrase created, setup closed afterwards');
 }
 const client = await pool.connect();
 try {
@@ -1954,7 +1974,7 @@ console.log(
 // --- First-run passphrase setup (the real settings table) ---
 {
   const store = new DbAuthStore();
-  assert.equal(await store.getPassphrase(), null, 'a fresh test database has no passphrase');
+  await store.setPassphrase(null); // the passphrase created at the start of this test
   const [a, b] = await Promise.all([
     hashPassphrase('first long passphrase'),
     hashPassphrase('second long passphrase'),

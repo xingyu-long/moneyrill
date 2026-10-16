@@ -64,7 +64,7 @@ Plaid Link need it). It holds real financial data, so safety rules outrank conve
 ## Security
 
 - Listens on `localhost` and, only if enabled, one private Wi-Fi address; never `0.0.0.0` on the host, never tunnelled.
-  Sign-in becomes mandatory off localhost.
+  Sign-in is always required, on localhost too.
 - One passphrase (scrypt-hashed), `HttpOnly`, `SameSite=Strict` session cookie, host and origin checks on every API
   call, a strict Content-Security-Policy, validated request bodies, parameterised SQL, a container that runs
   unprivileged. Details: [SECURITY.md](../../SECURITY.md).

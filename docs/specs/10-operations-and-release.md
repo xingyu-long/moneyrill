@@ -19,7 +19,7 @@ Two Compose projects on one computer, **never sharing a database, key, volume or
 | Plaid         | Sandbox (fake banks)                               | Production (the owner's own keys)                  |
 | Token key     | `secrets/token.key`                                | `secrets/production.key`                           |
 | Data          | fake data plus Sandbox only; seeded on first start | real data only; never seeded; empty at first       |
-| Sign-in       | optional on localhost                              | optional on localhost; mandatory with `ALLOW_LAN`  |
+| Sign-in       | always required; its own passphrase                | always required; its own passphrase                |
 
 - Both may run at once. Staging shows an amber strip, `STAGING` badge and tab title; production shows none
   ([02](02-foundation.md#the-page-shell)).
@@ -28,7 +28,7 @@ Two Compose projects on one computer, **never sharing a database, key, volume or
   ([02](02-foundation.md#database)). **No environment copies data into the other.** Production data is never copied into staging.
 - **Network exposure.** The app listens only on `127.0.0.1` and, with `BIND_ADDRESS` + `ALLOW_LAN=true`, one private address
   (`10.x`, `172.16-31.x`, `192.168.x`); `deploy.sh` **refuses any other bind address** (never `0.0.0.0`, never a tunnel or port
-  forward), and sign-in becomes mandatory with LAN access. The database port is never published.
+  forward), and sign-in is always required. The database port is never published.
 
 ## Setup (`scripts/setup.sh [staging|production]`)
 

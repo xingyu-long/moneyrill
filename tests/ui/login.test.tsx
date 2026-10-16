@@ -8,8 +8,6 @@ type Session = {
   authenticated: boolean;
   configured: boolean;
   passphrase: string;
-  // The app is open on this computer and no passphrase is needed until one is set.
-  open: boolean;
 };
 let session: Session;
 const calls: string[] = [];
@@ -19,7 +17,6 @@ beforeEach(() => {
     authenticated: false,
     configured: true,
     passphrase: 'correct horse battery',
-    open: false,
   };
   calls.length = 0;
   vi.stubGlobal(
@@ -34,10 +31,8 @@ beforeEach(() => {
       });
       if (path === '/api/auth/status')
         return reply(200, {
-          required: session.configured || !session.open,
           configured: session.configured,
           authenticated: session.authenticated,
-          setup: !session.configured,
         });
       if (path === '/api/auth/setup') {
         const body = JSON.parse(init.body);
@@ -65,8 +60,7 @@ beforeEach(() => {
         session.authenticated = false;
         return reply(200, { ok: true });
       }
-      if (!session.authenticated && !(session.open && !session.configured))
-        return reply(401, { error: 'Sign in required' });
+      if (!session.authenticated) return reply(401, { error: 'Sign in required' });
       return reply(200, { ...structuredClone(overview), hasPlaidKeys: true });
     }),
   );
@@ -219,18 +213,5 @@ describe('Settings → Sign-in', () => {
     await user.type(screen.getByLabelText('New passphrase'), NEXT);
     await user.type(screen.getByLabelText('Repeat the passphrase'), NEXT + 'x');
     expect(button).toBeDisabled();
-  });
-
-  it('with no passphrase yet, offers to set one and then asks for it', async () => {
-    session.configured = false;
-    session.open = true;
-    const user = await openPage();
-    expect(await screen.findByRole('heading', { name: 'Set a passphrase' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Current passphrase')).toBeNull();
-    await user.type(screen.getByLabelText('New passphrase'), NEXT);
-    await user.type(screen.getByLabelText('Repeat the passphrase'), NEXT);
-    await user.click(screen.getByRole('button', { name: 'Set passphrase' }));
-    expect(session.passphrase).toBe(NEXT);
-    expect(session.configured).toBe(true);
   });
 });

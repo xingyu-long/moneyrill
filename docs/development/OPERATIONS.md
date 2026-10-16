@@ -50,13 +50,13 @@ BIND_ADDRESS=192.168.1.20   # this computer's Wi-Fi address (not 0.0.0.0)
 ALLOW_LAN=true
 ```
 
-Open `http://<this-computer's-LAN-IP>:3003` (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. With LAN access on, **sign-in is mandatory**: nothing under `/api` answers without a session, and until a passphrase exists the sign-in page offers to create one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
+Open `http://<this-computer's-LAN-IP>:3003` (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. Sign-in is always required, so nothing under `/api` answers without a session, and until a passphrase exists the sign-in page offers to create one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
 
 ## Sign-in (passphrase)
 
 One passphrase for one person, no accounts, and no scripts: everything is in the browser.
 
-- **First run.** A fresh installation has no passphrase. With `ALLOW_LAN=true` the sign-in page shows **Create a passphrase** (12+ characters, typed twice) and signs you in. Without LAN mode the app is open on localhost until you set one in **Settings → Sign-in**. **Create it right after the first deploy**: until one exists, whoever opens the page first on your Wi-Fi can choose it. Once a passphrase exists, setup is closed and the page only ever asks for it.
+- **First run.** Staging and production each start with no passphrase: opening the app shows **Create a passphrase** (12+ characters, typed twice) and signs you in. **Create it right after the first deploy**: until one exists, whoever opens the page first (on your Wi-Fi too, with `ALLOW_LAN`) can choose it. Once a passphrase exists, setup is closed and the page only ever asks for it. Staging and production have separate passphrases.
 - **Change it** in **Settings → Sign-in**: current passphrase, new one, repeat. Every other device is signed out; you stay signed in.
 - **Forgot it?** The browser cannot recover it. On the computer running the app, delete the stored passphrase and every session (use `staging` for staging), then reload: the page offers **Create a passphrase** again.
 
@@ -67,12 +67,11 @@ DELETE FROM sessions;
 SQL
 ```
 
-`<instance>` is `INSTANCE_NAME` from `.env.production` (`moneyrill` unless you set it). With LAN mode on, access stays blocked until a new passphrase is created in the browser.
+`<instance>` is `INSTANCE_NAME` from `.env.production` (`moneyrill` unless you set it). Until a new passphrase is created in the browser, nothing is accessible.
 
 - Stored as a salted scrypt hash; the browser gets a random session token in an `HttpOnly`, `SameSite=Strict` cookie (30 days). Only a hash of the token is kept in the database.
 - Five wrong attempts (sign-in, or a wrong current passphrase when changing it) from the same address lock sign-in from that address for 15 minutes; other addresses are not affected (restart the app container to clear it). Behind a reverse proxy set `TRUST_PROXY=true` so each client counts separately.
 - Changing the passphrase signs every other device out. **Sign out** is in the top bar.
-- Required automatically when `ALLOW_LAN=true`; otherwise optional (the app stays open on localhost until you set a passphrase).
 - Every response carries a Content-Security-Policy (scripts only from the app itself, one hashed inline script and Plaid Link), `X-Frame-Options: DENY`, `nosniff` and no referrer. The container runs as an unprivileged user.
 - Over plain `http://` on Wi-Fi the passphrase is not encrypted in transit, so treat the network as trusted. HTTPS (Tailscale `serve` or a local certificate) is in TODO.md.
 

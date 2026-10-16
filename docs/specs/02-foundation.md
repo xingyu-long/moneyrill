@@ -23,7 +23,7 @@ deployed and smoke-tested. Every later feature adds routes, tables and pages to 
    | `PUBLIC_ORIGIN`                    | `http://localhost:3002`             | hostname must be `localhost` or `127.0.0.1`                                         |
    | `PLAID_CLIENT_ID`, `PLAID_SECRET`  | empty                               | `hasKeys` is true only when both are set                                            |
    | `PLAID_REDIRECT_URI`               | none                                | passed to Link when set                                                             |
-   | `ALLOW_LAN`                        | `false`                             | `true` also accepts private-network hosts and makes sign-in mandatory               |
+   | `ALLOW_LAN`                        | `false`                             | `true` also accepts private-network hosts (sign-in is always required)              |
    | `TRUST_PROXY`                      | `false`                             | `true` only behind a proxy you run: use `X-Forwarded-*`                             |
    | `SYNC_CRON`, `SYNC_TIMEZONE`       | `0 13 * * *`, `America/Los_Angeles` | five fields; an IANA zone, both validated at startup                                |
    | `MARKET_DATA`                      | on                                  | `off` never contacts Yahoo Finance                                                  |
@@ -116,18 +116,17 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
 - **Sessions.** A random 32-byte token (base64url) in the cookie `sw_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`,
   30 days, `Secure` when `X-Forwarded-Proto` is https). Only the SHA-256 of the token is stored in
   `sessions(token_hash, created_at, expires_at)`; expired rows are deleted whenever one is created.
-- **When sign-in is required:** when a passphrase exists, or always when `ALLOW_LAN` is on (before one exists the
-  login page offers to create it). Otherwise the app is open on localhost.
-- **Endpoints:** `GET /api/auth/status` → `{required, configured, authenticated, setup}` (`setup` = no passphrase yet);
+- **Sign-in is always required**, in staging and production, on localhost and on the LAN. Before a passphrase exists
+  the sign-in page offers to create one and every data endpoint answers 401.
+- **Endpoints:** `GET /api/auth/status` → `{configured, authenticated}` (`configured` false = no passphrase yet);
   `POST /api/auth/login` `{passphrase}` → sets the cookie; `POST /api/auth/setup` `{passphrase}` → creates the first
   passphrase and sets the cookie; `POST /api/auth/passphrase` `{current, passphrase}` → changes it and sets a fresh
   cookie; `POST /api/auth/logout` clears it. Status, login, setup, logout and `/api/health` are open; everything else
-  under `/api`, including the change, answers 401 `{error}` without a session when sign-in is required.
+  under `/api`, including the change, answers 401 `{error}` without a session.
 - **First-run setup.** Only while no passphrase exists; afterwards `POST /api/auth/setup` answers 409 "A passphrase is
   already set" and changes nothing (the insert is atomic, so two racing setups cannot both win, and it deletes every
-  session). A passphrase under 12 characters → 400. It works the same with or without `ALLOW_LAN`: with LAN mode the
-  sign-in page offers it, without it the app is open on localhost and **Settings → Sign-in** offers it. **Accepted
-  trade-off:** with `ALLOW_LAN` and no passphrase yet, whoever opens the page first on the Wi-Fi chooses it, so create
+  session). A passphrase under 12 characters → 400. It is offered on the sign-in page whenever none exists. **Accepted
+  trade-off:** until it exists, whoever opens the page first (on the Wi-Fi too, with `ALLOW_LAN`) chooses it, so create
   it right after the first deploy.
 - **Changing it.** Needs a session and the current passphrase. A wrong current passphrase → 401 "Incorrect passphrase"
   and counts toward the lockout below; a new one under 12 characters → 400 and nothing changes. On success every
@@ -158,11 +157,11 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
 - Migrations: a changed applied file is refused; a repeat run applies nothing; an environment mismatch refuses to
   start (`tests/migrations*.ts`).
 - Sign-in: wrong passphrase 401 after the delay; five failures lock one address but not another; success sets a
-  `HttpOnly` `SameSite=Strict` cookie; changing the passphrase invalidates sessions; with `ALLOW_LAN` and no
+  `HttpOnly` `SameSite=Strict` cookie; changing the passphrase invalidates sessions; with no
   passphrase everything but the open endpoints answers 401 (`tests/auth.test.ts`).
 - First-run setup: it stores the passphrase and signs in; a short or missing one is 400 and stores nothing; with a
   passphrase present it answers 409 and neither replaces it nor signs anyone out; two setups at once leave exactly one
-  winner (also against the real table in `tests/integration.ts`); it works with and without LAN mode.
+  winner (also against the real table in `tests/integration.ts`).
 - Changing it: no session → 401; a wrong current passphrase → 401, counted toward the lockout shared with sign-in; a
   short new one → 400 and the old one still works; on success the new one signs in and the old one does not, other
   sessions are gone and the caller's new cookie works.

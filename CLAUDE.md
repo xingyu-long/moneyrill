@@ -15,7 +15,7 @@ this file where they differ.
 2. Make the change **with tests**, keep `npm run check` green, update docs (README, TODO, the feature's spec in `docs/specs/` with its acceptance checks). For a new feature or a big change keep **all** the docs in sync in the same pull request (see `docs/specs/README.md`, "Keeping the docs in sync").
 3. Push the branch and try it on staging: `./scripts/ship.sh --stage-only`. It is the local gate: checks, a disposable-database
    integration test, staging deploy and smoke test, and it records this exact commit as verified. Verify the behaviour
-   yourself (browser at http://localhost:3002, API/UI checks) and report what you saw.
+   yourself (the sign-in page, API/UI checks; behind sign-in, ask the maintainer to look) and report what you saw.
 4. Open a pull request with `./scripts/pr.sh "Title"`. **Then stop and ask the maintainer to approve the merge;
    merge with `./scripts/merge-pr.sh <n>` only after the maintainer says so** ("merge it"). It merges a commit that passed the
    local gate (step 3) without waiting for a GitHub runner, never one whose CI has failed, and `--wait` makes it wait for a
@@ -56,8 +56,10 @@ this file where they differ.
 - **Production data is real.** Do not read, copy or print balances, holdings or tokens unless the task needs it, and then
   only the minimum. Never copy production data into staging. Staging is fake data + Plaid Sandbox only.
 - **Never ask for or handle the sign-in passphrase.** The maintainer creates and changes it in the app (sign-in page,
-  Settings → Sign-in). Use a random throwaway passphrase only on staging for tests, and remove it afterwards with the
-  recovery command in `docs/development/OPERATIONS.md` (Sign-in).
+  Settings → Sign-in), separately for staging and production. The gate never needs one: the integration test makes its
+  own throwaway passphrase on its disposable database, and the smoke test checks only what works signed out. To see
+  staging signed in, ask the maintainer to look (or to give a throwaway passphrase for that session and change it
+  afterwards). The recovery command is in `docs/development/OPERATIONS.md` (Sign-in); never run it on production.
 - **Never commit secrets** (`.env*`, `secrets/`, `backups/`) or echo them. Tokens only travel through stdin/files, not arguments.
 - **Do not create new real Plaid Items** without being asked (a Plaid trial allows only a few, and deleting one does not
   give a slot back); use Reconnect.
@@ -80,4 +82,4 @@ python3 scripts/gh.py protection   # is main protected on GitHub?
 ./scripts/scan-secrets.sh --history  # secrets and personal data in files and history (add --terms FILE)
 ```
 
-Staging: http://localhost:3002 (sandbox, no sign-in). Production: http://localhost:3003 (real data, sign-in required).
+Staging: http://localhost:3002 (sandbox, fake data). Production: http://localhost:3003 (real data). Both require sign-in; each has its own passphrase, created in the app.

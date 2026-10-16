@@ -52,7 +52,7 @@ function Shell() {
     window.scrollTo(0, scrollMemory.restoreFor(path));
   }, [path]);
   if (!auth.checked) return <Loading />;
-  if (auth.required && !auth.authenticated) return <LoginPage />;
+  if (!auth.authenticated) return <LoginPage />;
   return (
     <div className="flex min-h-screen flex-col max-[760px]:pb-[calc(110px+env(safe-area-inset-bottom))]">
       {/* Staging only: production shows no strip, so the real data is not marked with a colour bar. */}

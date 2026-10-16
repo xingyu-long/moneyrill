@@ -51,6 +51,12 @@ function serve(flows: unknown) {
     'fetch',
     vi.fn(async (url: string, init: any = {}) => {
       calls.push({ url, method: init.method ?? 'GET', body: init.body && JSON.parse(init.body) });
+      if (url === '/api/auth/status')
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ configured: true, authenticated: true }),
+        };
       if (url === '/api/investments/cash-flows-from')
         return { ok: true, status: 200, json: async () => ({ ok: true }) };
       if (url === '/api/investments/cash-flows')

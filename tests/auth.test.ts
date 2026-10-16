@@ -49,10 +49,8 @@ test('once a passphrase is set the API requires a session, except health and sta
   assert.equal((await app.inject({ method: 'GET', url: '/api/health', headers })).statusCode, 200);
   const status = await app.inject({ method: 'GET', url: '/api/auth/status', headers });
   assert.deepEqual(status.json(), {
-    required: true,
     configured: true,
     authenticated: false,
-    setup: false,
   });
   await app.close();
 });
@@ -75,10 +73,8 @@ test('wrong passphrase is rejected; the right one gives a working session cookie
   assert.deepEqual(
     (await app.inject({ method: 'GET', url: '/api/auth/status', headers: withCookie })).json(),
     {
-      required: true,
       configured: true,
       authenticated: true,
-      setup: false,
     },
   );
   // A request that carries the cookie gets past the gate (the unknown path then 404s).
@@ -127,20 +123,6 @@ test('changing the passphrase signs every device out', async () => {
   await app.close();
 });
 
-test('with no passphrase and localhost-only mode the app stays open', async () => {
-  const app = await createApp({ authStore: new MemoryAuthStore(), failureDelayMs: 0 });
-  const status = await app.inject({ method: 'GET', url: '/api/auth/status', headers });
-  assert.deepEqual(status.json(), {
-    required: false,
-    configured: false,
-    authenticated: false,
-    setup: true,
-  });
-  assert.equal((await app.inject({ method: 'GET', url: '/api/nope', headers })).statusCode, 404);
-  assert.equal((await login(app, PASS)).statusCode, 503);
-  await app.close();
-});
-
 test('lockout is per client address: one address cannot lock another out', async () => {
   const { app } = await appWithPassphrase();
   const from = (remoteAddress: string, passphrase: string) =>
@@ -185,19 +167,17 @@ const gate = (app: any, cookie?: string) =>
     headers: cookie ? { ...headers, cookie } : headers,
   });
 
-async function freshLanApp() {
+async function freshApp() {
   const store = new MemoryAuthStore();
-  return { store, app: await createApp({ authStore: store, failureDelayMs: 0, lan: true }) };
+  return { store, app: await createApp({ authStore: store, failureDelayMs: 0 }) };
 }
 
-test('with the app open on the LAN and no passphrase, the status offers setup and data stays blocked', async () => {
-  const { app } = await freshLanApp();
+test('with no passphrase the status says so and data stays blocked until one is created', async () => {
+  const { app } = await freshApp();
   const status = await app.inject({ method: 'GET', url: '/api/auth/status', headers });
   assert.deepEqual(status.json(), {
-    required: true,
     configured: false,
     authenticated: false,
-    setup: true,
   });
   assert.equal((await gate(app)).statusCode, 401);
   assert.equal((await login(app, PASS)).statusCode, 503);
@@ -205,7 +185,7 @@ test('with the app open on the LAN and no passphrase, the status offers setup an
 });
 
 test('setup stores the passphrase, signs in, and is closed for good afterwards', async () => {
-  const { app, store } = await freshLanApp();
+  const { app, store } = await freshApp();
   const ok = await setup(app, PASS);
   assert.equal(ok.statusCode, 200);
   assert.match(String(ok.headers['set-cookie']), /HttpOnly; SameSite=Strict/);
@@ -218,7 +198,7 @@ test('setup stores the passphrase, signs in, and is closed for good afterwards',
 });
 
 test('setup refuses a short or missing passphrase and stores nothing', async () => {
-  const { app, store } = await freshLanApp();
+  const { app, store } = await freshApp();
   const short = await setup(app, 'short');
   assert.equal(short.statusCode, 400);
   assert.match(short.json().error, /at least 12/);
@@ -239,22 +219,13 @@ test('setup never replaces an existing passphrase or signs anyone out', async ()
 });
 
 test('two setups at once: exactly one wins', async () => {
-  const { app, store } = await freshLanApp();
+  const { app, store } = await freshApp();
   const [a, b] = await Promise.all([
     setup(app, 'first long passphrase'),
     setup(app, 'second long passphrase'),
   ]);
   assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
   assert.equal(store.sessions.size, 1);
-  await app.close();
-});
-
-test('localhost-only mode can set the first passphrase too, and then asks for it', async () => {
-  const store = new MemoryAuthStore();
-  const app = await createApp({ authStore: store, failureDelayMs: 0 });
-  assert.equal((await gate(app)).statusCode, 404);
-  assert.equal((await setup(app, PASS)).statusCode, 200);
-  assert.equal((await gate(app)).statusCode, 401);
   await app.close();
 });
 

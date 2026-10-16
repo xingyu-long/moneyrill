@@ -1,5 +1,5 @@
 // Black-box smoke test of a running environment. No data is created or changed, and it works
-// whether or not sign-in is on.   tsx tests/smoke.ts BASE_URL EXPECTED_MODE
+// whether or not a passphrase has been created yet.   tsx tests/smoke.ts BASE_URL EXPECTED_MODE
 //   tsx tests/smoke.ts http://localhost:3002 sandbox
 //   tsx tests/smoke.ts http://localhost:3003 production [COMMIT]   (COMMIT: must be the one running)
 import http from 'node:http';
@@ -61,9 +61,8 @@ try {
   add(
     'sign-in status is well formed',
     status.status === 200 &&
-      typeof sign?.required === 'boolean' &&
       typeof sign?.configured === 'boolean' &&
-      typeof sign?.setup === 'boolean',
+      typeof sign?.authenticated === 'boolean',
     JSON.stringify(sign),
   );
   if (sign?.configured) {
@@ -79,70 +78,30 @@ try {
       `status ${res.status}`,
     );
   }
-  if (mode === 'production')
-    add('production requires sign-in', sign?.required === true, `required=${sign?.required}`);
 
+  // Sign-in is always required, so without a session no data is served (the smoke test never holds a passphrase).
   const overview = await get('/api/overview');
-  if (sign?.required) {
-    add(
-      'financial data is blocked without a session',
-      overview.status === 401,
-      `HTTP ${overview.status}`,
-    );
-  } else {
-    const o = overview.json;
-    add(
-      'overview loads with the expected shape',
-      overview.status === 200 &&
-        ['accounts', 'balances', 'holdings', 'benchmarks', 'connections'].every((k) =>
-          Array.isArray(o?.[k]),
-        ) &&
-        o?.mode === mode,
-      `HTTP ${overview.status}`,
-    );
-  }
+  add(
+    'financial data is blocked without a session',
+    overview.status === 401,
+    `HTTP ${overview.status}`,
+  );
 
-  // Read-only: transactions and categories answer with the right shape, or are blocked without a session.
+  // Read-only: transactions, categories and reports are blocked without a session.
   const txns = await get('/api/transactions?limit=1');
   const cats = await get('/api/categories');
   const flow = await get('/api/reports/cash-flow');
   const spend = await get('/api/reports/categories?type=expense');
-  if (sign?.required) {
-    add(
-      'transactions and categories are blocked without a session',
-      txns.status === 401 && cats.status === 401,
-      `HTTP ${txns.status}/${cats.status}`,
-    );
-    add(
-      'reports are blocked without a session',
-      flow.status === 401 && spend.status === 401,
-      `HTTP ${flow.status}/${spend.status}`,
-    );
-  } else {
-    add(
-      'reports have the expected shape (production may legitimately be empty)',
-      flow.status === 200 &&
-        Array.isArray(flow.json?.series) &&
-        typeof flow.json?.totals?.income === 'string' &&
-        Array.isArray(flow.json?.breakdown?.expenses) &&
-        spend.status === 200 &&
-        Array.isArray(spend.json?.slices) &&
-        typeof spend.json?.summary?.count === 'number',
-      `HTTP ${flow.status}/${spend.status}`,
-    );
-    add(
-      'transactions list has the expected shape',
-      txns.status === 200 && Array.isArray(txns.json?.transactions) && 'nextCursor' in txns.json,
-      `HTTP ${txns.status}`,
-    );
-    add(
-      'default categories exist, including the Uncategorized fallback',
-      cats.status === 200 &&
-        Array.isArray(cats.json?.categories) &&
-        cats.json.categories.some((c: any) => c.key === 'uncategorized'),
-      `HTTP ${cats.status}`,
-    );
-  }
+  add(
+    'transactions and categories are blocked without a session',
+    txns.status === 401 && cats.status === 401,
+    `HTTP ${txns.status}/${cats.status}`,
+  );
+  add(
+    'reports are blocked without a session',
+    flow.status === 401 && spend.status === 401,
+    `HTTP ${flow.status}/${spend.status}`,
+  );
 
   const page = await get('/');
   const asset = /\/assets\/[^"']+\.js/.exec(page.text)?.[0];

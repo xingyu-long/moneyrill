@@ -27,7 +27,7 @@ function focusSearchSoon() {
  * to the top on a computer; on a phone it scrolls away and the pages float at the bottom instead.
  */
 export function Topbar() {
-  const { action, auth, busy, data, environmentName, production, signOut } = useApp();
+  const { action, busy, data, environmentName, production, signOut } = useApp();
   const search = hrefFor('Transactions');
   return (
     <header className="z-30 min-[761px]:sticky min-[761px]:top-0 min-[761px]:bg-background/90 min-[761px]:backdrop-blur">
@@ -41,11 +41,9 @@ export function Topbar() {
         </a>
         <MainNav />
         <div className="flex items-center justify-end gap-2.5 min-[761px]:pr-[50px] max-[760px]:flex-1">
-          {auth.required && (
-            <Button variant="outline" size="sm" className={ROUND} onClick={() => void signOut()}>
-              Sign out
-            </Button>
-          )}
+          <Button variant="outline" size="sm" className={ROUND} onClick={() => void signOut()}>
+            Sign out
+          </Button>
           {production ? (
             // Production shows no environment badge: the round Sync button takes its place.
             <button

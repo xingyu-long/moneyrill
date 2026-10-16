@@ -7,7 +7,15 @@ import { MemoryAuthStore } from '../server/auth/store.ts';
 const app = await createApp({ authStore: new MemoryAuthStore(), failureDelayMs: 0 });
 test.after(() => app.close());
 
-const call = (opts: any) => app.inject(opts);
+// Sign-in is always required: create a passphrase once and send its session with every call.
+const created = await app.inject({
+  method: 'POST',
+  url: '/api/auth/setup',
+  headers: { host: 'localhost:3002', 'content-type': 'application/json' },
+  payload: { passphrase: 'a throwaway test passphrase' },
+});
+const cookie = String(created.headers['set-cookie']).split(';')[0];
+const call = (opts: any) => app.inject({ ...opts, headers: { cookie, ...opts.headers } });
 
 test('API refuses non-local hosts and cross-site requests', async () => {
   const host = await call({ method: 'GET', url: '/api/health', headers: { host: 'evil.example' } });

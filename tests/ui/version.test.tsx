@@ -13,7 +13,7 @@ function serve(version: unknown, mode = 'sandbox') {
         path === '/api/health'
           ? { ok: true, mode, version }
           : path === '/api/auth/status'
-            ? { required: false, configured: false, authenticated: false }
+            ? { configured: true, authenticated: true }
             : { ...structuredClone(overview), mode };
       return { ok: true, status: 200, json: async () => body };
     }),

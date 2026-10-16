@@ -42,6 +42,9 @@ const holding = (
 });
 
 export const overview = {
+  // Most tests answer every request, /api/auth/status included, with this body: it says the browser is signed in.
+  configured: true,
+  authenticated: true,
   accounts: [
     account('brokerage', 'Individual brokerage', 'investment', '1100'),
     account('roth', 'Roth IRA', 'investment', '700'),
@@ -311,6 +314,7 @@ export function stubApi(
               source: 'default',
             },
       );
+    if (url === '/api/auth/status') return reply({ configured: true, authenticated: true });
     if (url.startsWith('/api/overview')) return reply(structuredClone(overview));
     if (url === '/api/transactions' && method === 'POST') {
       const row: any = {

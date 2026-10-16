@@ -1,8 +1,17 @@
 # Passphrase in the UI: first-run setup and change in Settings
 
-Status: implemented on `feature/first-run-setup` (revised 2026-10-15). The owner wants **no scripts** for the passphrase. Everything happens in the browser. Commit
+Status: implemented on `feature/first-run-setup` (revised 2026-10-15; sign-in is now always required, see **Decision: sign-in is always required** below). The owner wants **no scripts** for the passphrase. Everything happens in the browser. Commit
 `bbaddd7` on `feature/first-run-setup` built an earlier version of this plan, with a one-time setup code and
 `setup-code.sh`. This plan replaces that version. Rework that branch as described below; don't start again from main.
+
+## Decision: sign-in is always required (2026-10-15)
+
+Staging and production behave the same: every installation, on localhost or the LAN, requires sign-in. A fresh one
+opens on **Create a passphrase**. The localhost "open until you set one" mode is gone, and so are the `required` and
+`setup` status fields, `alwaysRequired` in `AuthService`, and the **Set a passphrase** card in Settings (Settings →
+Sign-in only changes the passphrase). Staging has its own passphrase that the maintainer sets, so the gate never
+needs it: the integration test creates a throwaway one on its disposable database, and the smoke test checks only
+what works signed out. Where the sections below describe open mode, this decision wins.
 
 ## What the owner wants
 

@@ -7,12 +7,9 @@ import { Button } from './ui/button.tsx';
 import { Field } from './ui/form.tsx';
 import { Input } from './ui/input.tsx';
 
-/**
- * The passphrase: change it while signed in, or, when the app is still open on this computer with none set,
- * choose the first one (the app then asks for it).
- */
+/** Change the passphrase. Other devices are signed out; this browser stays signed in. */
 export function SignInPage() {
-  const { auth, setUp, changePassphrase } = useApp();
+  const { changePassphrase } = useApp();
   const [current, setCurrent] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -26,12 +23,8 @@ export function SignInPage() {
     setError('');
     setDone(false);
     try {
-      if (auth.configured) {
-        await changePassphrase(current, passphrase);
-        setDone(true);
-      } else {
-        await setUp(passphrase);
-      }
+      await changePassphrase(current, passphrase);
+      setDone(true);
       setCurrent('');
       setPassphrase('');
       setRepeat('');
@@ -45,27 +38,21 @@ export function SignInPage() {
   return (
     <SettingsCard
       icon={<KeyRound size={21} />}
-      title={auth.configured ? 'Change passphrase' : 'Set a passphrase'}
-      description={
-        auth.configured
-          ? 'Changing it signs every other device out. You stay signed in here.'
-          : 'No passphrase is set, so anyone who can open the app sees your data. Choose one to require it on every device.'
-      }
+      title="Change passphrase"
+      description="Changing it signs every other device out. You stay signed in here."
     >
       <form className="grid max-w-[420px] gap-4" onSubmit={submit}>
-        {auth.configured && (
-          <Field className="text-xs">
-            Current passphrase
-            <Input
-              className="h-10"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-            />
-          </Field>
-        )}
+        <Field className="text-xs">
+          Current passphrase
+          <Input
+            className="h-10"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+        </Field>
         <NewPassphraseFields
           passphrase={passphrase}
           repeat={repeat}
@@ -87,9 +74,9 @@ export function SignInPage() {
         )}
         <Button
           className="justify-self-start"
-          disabled={busy || !passphraseReady(passphrase, repeat) || (auth.configured && !current)}
+          disabled={busy || !current || !passphraseReady(passphrase, repeat)}
         >
-          {busy ? 'Saving…' : auth.configured ? 'Change passphrase' : 'Set passphrase'}
+          {busy ? 'Saving…' : 'Change passphrase'}
         </Button>
       </form>
     </SettingsCard>

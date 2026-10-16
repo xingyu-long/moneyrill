@@ -35,26 +35,21 @@ export const clearedCookie = `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max
 
 export class AuthService {
   store: AuthStore;
-  alwaysRequired: boolean;
   // Failed attempts are counted per client address, so one stranger cannot lock the owner out.
   private attempts = new Map<string, { failures: number; lockedUntil: number }>();
   private delayMs: number;
 
-  /** alwaysRequired: sign-in is mandatory (LAN mode) even before a passphrase exists. */
-  constructor(store: AuthStore, opts: { alwaysRequired?: boolean; failureDelayMs?: number } = {}) {
+  /** Sign-in is always required: before a passphrase exists the app only offers to create one. */
+  constructor(store: AuthStore, opts: { failureDelayMs?: number } = {}) {
     this.store = store;
-    this.alwaysRequired = !!opts.alwaysRequired;
     this.delayMs = opts.failureDelayMs ?? 400;
   }
 
   async status(cookieHeader?: string) {
     const configured = (await this.store.getPassphrase()) !== null;
     return {
-      required: this.alwaysRequired || configured,
       configured,
       authenticated: await this.isAuthenticated(cookieHeader),
-      // No passphrase yet: the app offers to create one (sign-in page in LAN mode, Settings otherwise).
-      setup: !configured,
     };
   }
 
