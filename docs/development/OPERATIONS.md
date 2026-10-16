@@ -105,6 +105,20 @@ $c up -d                              # migrations run on start
 
 Sign in with your old passphrase and compare accounts and balances with the old computer. Then stop the old stack (`docker compose -p <name>-production down`, never `-v`) and keep its volume and the dump until the new one has run a few days and been backed up itself. Existing Plaid connections keep syncing; to connect or reconnect an account, open the app at `localhost` on the machine that runs it (Plaid Link needs `localhost` or HTTPS).
 
+### Upgrading the image
+
+Releases are tags (`v0.2.0`) that publish `ghcr.io/xingyu-long/moneyrill:0.2.0` and `:0.2`. Nothing updates automatically and nothing announces a release: watch the GitHub releases and read the [CHANGELOG](../../CHANGELOG.md) first.
+
+1. **Back up** ([above](#back-up-and-restore-everything-migration)); this setup has no rehearsal.
+2. **Set the new version and run `up -d`**; there is no need to run `down` first. Compose recreates only the app and worker (a few seconds of downtime while the app swaps), and the database container and volume are untouched, and migrations (additive, applied in order) run when the app starts:
+   ```sh
+   MONEYRILL_VERSION=0.2.0 docker compose --env-file .env.production -f compose.image.production.yaml up -d
+   ```
+   (the demo setup is the same without `--env-file`.)
+3. **Check** the version in the footer, the sign-in page or `GET /api/health`.
+
+To go back, set the previous `MONEYRILL_VERSION` and run `up -d` again: migrations stay backward compatible, so an older image runs on the newer schema. Keep the backup in case a release breaks that rule. Pin an exact tag such as `0.2.0`; `0.2` moves to each patch release, and there is no `latest`. Upgrade one release at a time when you can. A source checkout upgrades with `ship.sh` instead, which adds the backup, migration rehearsal and rollback.
+
 ## Which version is running?
 
 Each image carries the git commit and build time it was made from (set by `deploy.sh` through Docker build arguments). They show in the footer (`v c4ad6c8 · built Oct 3, 5:34 PM`), on the sign-in page, and in `GET /api/health` (`version.commit`). `ship.sh` checks that each environment reports the commit it just deployed. Staging has an amber top strip, badge and a `STAGING` tab title; production is green.
