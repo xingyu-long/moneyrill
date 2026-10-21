@@ -138,9 +138,14 @@ Mockups: [`docs/design/zen/`](../design/zen/) (Investments). The content is the 
   (with the reason in brackets when the first balance or the cash-flow start, not the range, set the day; amount masked in
   Private mode), and the chart, which starts on that same day (`valueSeries`) so the line and the line of text agree, of the return (or value change
   when no return can be computed). An (i) beside the headline explains the method with the numbers for the range and
-  edits "cash flows from": the day is saved when the field loses focus or Enter is pressed (not on every change), **Use automatic** removes it, and a future day is refused. The (i) is also present when the chart shows plain value change, with the reason in words and the same day field, so a wrong day can always be put right. All accounts are selected by default; the account menu picks some (the button then reads
-  "2 accounts"; **Clear**, or unpicking the last one, returns to all). Every benchmark that has data is drawn with its
+  edits "cash flows from": the day is saved when the field loses focus or Enter is pressed (not on every change), **Use automatic** removes it, and a future day is refused. The (i) is also present when the chart shows plain value change, with the reason in words and the same day field, so a wrong day can always be put right. Every benchmark that has data is drawn with its
   change over the range; clicking an index hides or shows its line (the portfolio line is always shown; not saved).
+- **Account picker**, beside "Portfolio value" on the value card: every investment account is counted by default
+  (the button reads "All investment accounts"); the menu picks some (each listed with the last digits of its number),
+  and the button then reads "2 accounts". **Clear**, or unpicking the last one, returns to all; the pick is not saved.
+  The value, chart, allocation, holdings and security detail count only the picked accounts. With only some picked
+  the card shows the **value change** and no Contributed, because a transfer into a brokerage cannot be assigned to one
+  of its accounts.
 - **Allocation** card: a sentence on what leads, one bar split by weight, and the weights and values grouped by Asset
   class, Account or Security (`allocate`); hovering a part marks its row. Unreported value appears as its own part.
 - **Holdings** table: Security, Shares, Price, Value and the price Change over the range; rows aggregate the same
@@ -176,4 +181,5 @@ Mockups: [`docs/design/zen/`](../design/zen/) (Investments). The content is the 
   bank transaction; a future date is refused.
 - UI (`tests/ui/investments.test.tsx`, `tests/ui/return.test.tsx`, `tests/ui/private.test.tsx`): the value card with
   return, gain, contributed and the counted-from line (plain, and cut by the cash-flow start); "value change" when only some accounts are selected or flows are unavailable; account
-  menu and Clear; benchmark toggles; allocation grouping; holdings sort and export; security detail; Private mode.
+  picker (`tests/ui/account-picker.test.tsx`: all by default, a pick narrows the value and holdings, Clear and
+  unpicking the last one return to all); benchmark toggles; allocation grouping; holdings sort and export; security detail; Private mode.

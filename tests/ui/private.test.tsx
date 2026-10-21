@@ -56,7 +56,7 @@ describe('private mode', () => {
     const cells = within(vti).getAllByRole('cell');
     expect(cells[cells.length - 1].textContent).toMatch(/^[+-]?\d+(\.\d+)?%$/);
     // the value card hides its amounts too, and keeps the return as a percentage
-    const card = screen.getByText('Portfolio value · all investment accounts').closest('section')!;
+    const card = screen.getByText('Portfolio value').closest('section')!;
     expect(card.textContent).not.toMatch(/\$/);
     // the only dollar figures left in the table are public per-unit prices (VTI and cash)
     expect(dollars(document.querySelector('.holdings-card') as HTMLElement).sort()).toEqual([

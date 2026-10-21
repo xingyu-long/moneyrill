@@ -77,7 +77,7 @@ async function openMarket() {
       name: /Investments/,
     }),
   );
-  await screen.findByText('Portfolio value · all investment accounts');
+  await screen.findByText('Portfolio value');
   return user;
 }
 

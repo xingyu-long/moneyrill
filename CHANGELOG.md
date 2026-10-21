@@ -6,6 +6,7 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ### Added
 
+- **Account picker on the Investments page** (back after the redesign): beside "Portfolio value", all investment accounts are counted by default; pick some to see only their value, chart, allocation and holdings, and **Clear** to go back to all. With only some picked the card shows the value change, since the return needs the whole portfolio.
 - **Rules on brokerage activity**: rules now match and categorise brokerage activity too (its name counts as both merchant name and original statement), as it arrives on every sync and through **Update existing transactions**. Your own category still wins. A rule can be limited to an investment account. Migration `016_brokerage_rules.sql` is additive.
 - **The rule editor says why a match is skipped**: instead of a bare "0 matching transactions", the footer explains, for example "· 1 skipped because you added it" or "· 43 skipped (40 you categorised, 1 split, 2 you added)". Transactions you added by hand are now counted there too.
 - **Brokerage activity**: buys, sells, dividends, fees, deposits and share transfers are downloaded on every sync for connections with investments access (two years the first time, then the last 30 days) and shown on the Transactions page, labelled by what happened ("Buy · 10 VOO @ $500.00"). They count in Reports only once you give a row a category (a dividend → Dividends & Capital Gains), and never in the portfolio return's cash flows. Migration `015_investment_transactions.sql` is additive.

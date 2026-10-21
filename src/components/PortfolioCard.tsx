@@ -1,5 +1,9 @@
+import { Check, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { Chart, Empty, Range } from './common.tsx';
+import { Button } from './ui/button.tsx';
 import { Card } from './ui/card.tsx';
+import { PopoverPanel } from './ui/popover.tsx';
+import { cn } from '../lib/cn.ts';
 import { MASK, cash, dateLabelYear, delta, isPrivate, pct } from '../lib/format.ts';
 import { valueSeries } from '../lib/performance.ts';
 import { periodName } from '../lib/summary.ts';
@@ -63,6 +67,53 @@ function CountedFrom({
   );
 }
 
+/** Which investment accounts the page counts: all of them until some are picked; Clear, or unpicking the last one, goes back to all. */
+function AccountPicker() {
+  const { investments, picker, selected, setPicker, setSelected } = useApp();
+  return (
+    <div className="account-picker relative flex items-center gap-3">
+      <Button variant="outline" size="sm" aria-expanded={picker} onClick={() => setPicker(!picker)}>
+        <SlidersHorizontal size={14} />
+        {selected.length
+          ? `${selected.length} account${selected.length === 1 ? '' : 's'}`
+          : 'All investment accounts'}
+        <ChevronDown size={14} />
+      </Button>
+      {selected.length > 0 && (
+        <button className="text-xs text-positive" onClick={() => setSelected([])}>
+          Clear
+        </button>
+      )}
+      {picker && (
+        <PopoverPanel className="left-0 right-auto top-10 gap-1 p-2">
+          {investments.map((a) => {
+            const on = selected.includes(a.id);
+            return (
+              <button
+                key={a.id}
+                aria-pressed={on}
+                className={cn(
+                  'flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent',
+                  on && 'bg-accent font-medium text-positive',
+                )}
+                onClick={() =>
+                  setSelected(on ? selected.filter((x) => x !== a.id) : [...selected, a.id])
+                }
+              >
+                <span>
+                  {a.name}
+                  {a.mask && <small className="ml-1.5 text-muted-foreground">…{a.mask}</small>}
+                </span>
+                {on && <Check size={14} />}
+              </button>
+            );
+          })}
+        </PopoverPanel>
+      )}
+    </div>
+  );
+}
+
 /** The portfolio's value, what it returned over the chosen range, and its history. */
 export function PortfolioCard() {
   const { activePeriod, investmentHistory, portfolio, portfolioStart, returns } = useApp();
@@ -76,8 +127,11 @@ export function PortfolioCard() {
   const name = periodName(activePeriod);
   return (
     <Card className="gap-0 p-8 max-[760px]:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground">
-        <span>Portfolio value · all investment accounts</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-3">
+          <span>Portfolio value</span>
+          <AccountPicker />
+        </span>
         <Range options={PERIODS} soft />
       </div>
       <div className="mb-3 mt-1 flex flex-wrap items-end gap-x-10 gap-y-3">

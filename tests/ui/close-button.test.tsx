@@ -24,7 +24,7 @@ describe('Close button of drawers and dialogs', () => {
     render(<App />);
     await screen.findByText('TOTAL NET WORTH');
     await user.click(link(/Investments/));
-    await screen.findByText('Portfolio value · all investment accounts');
+    await screen.findByText('Portfolio value');
     await user.click(screen.getByRole('row', { name: /VTI/ }));
     const drawer = await screen.findByRole('dialog', { name: /Total US stock market/ });
     const close = within(drawer).getByRole('button', { name: 'Close security details' });

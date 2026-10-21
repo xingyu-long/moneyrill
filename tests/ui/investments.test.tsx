@@ -12,7 +12,7 @@ beforeEach(() => {
 
 const open = async () => {
   render(<App />);
-  await screen.findByText('Portfolio value · all investment accounts');
+  await screen.findByText('Portfolio value');
   return userEvent.setup();
 };
 
@@ -22,8 +22,7 @@ describe('Investments page', () => {
     expect(screen.queryByRole('button', { name: 'Market' })).toBeNull();
     expect(screen.getByText('Allocation')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Holdings' })).toBeInTheDocument();
-    // no account picker, benchmark tiles or return explanation
-    expect(screen.queryByText('All investment accounts')).toBeNull();
+    // no benchmark tiles or return explanation
     expect(screen.queryByRole('button', { name: 'How the return is calculated' })).toBeNull();
   });
 
