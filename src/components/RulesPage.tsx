@@ -26,6 +26,10 @@ import { Input } from './ui/input.tsx';
 import { Select } from './ui/select.tsx';
 import { Switch } from './ui/switch.tsx';
 
+// The blocks are tinted like the fields in them, so a field gets its own surface and a border to be seen.
+const FIELDS =
+  '[&_input]:border [&_input]:border-border [&_input]:bg-card [&_select]:border [&_select]:border-border [&_select]:bg-card';
+
 const ago = (iso: string) => {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   return days < 1 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
@@ -129,7 +133,7 @@ function Block({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-3 rounded-[14px] bg-muted p-4">
+    <div className={cn('grid gap-3 rounded-[14px] bg-muted p-4', FIELDS)}>
       <div className="flex items-center justify-between text-xs font-medium">
         {title}
         <Switch aria-label={title} checked={on} onCheckedChange={onToggle} />
@@ -171,6 +175,7 @@ function TextBlock({
         <div key={i} className="flex gap-2">
           <Input
             aria-label={`${title} text ${i + 1}`}
+            placeholder={title === 'Merchant name' ? 'e.g. costco' : 'e.g. PAYROLL'}
             value={v}
             maxLength={200}
             onChange={(e) =>
@@ -376,7 +381,7 @@ function RuleEditor({
           </div>
           <div className="grid content-start gap-3">
             <strong className="text-xs">Then apply these updates…</strong>
-            <div className="grid gap-3 rounded-[14px] bg-muted p-4">
+            <div className={cn('grid gap-3 rounded-[14px] bg-muted p-4', FIELDS)}>
               <div className="text-xs font-medium">Update category</div>
               <CategorySelect
                 label="Category to apply"
