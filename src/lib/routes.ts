@@ -57,6 +57,7 @@ export const SETTINGS_PAGES = [
   { slug: 'connections', label: 'Connections' },
   { slug: 'data', label: 'Data' },
   { slug: 'categories', label: 'Categories' },
+  { slug: 'rules', label: 'Rules' },
   { slug: 'sync', label: 'Sync settings & activity' },
   { slug: 'display', label: 'Display and navigation' },
   { slug: 'sign-in', label: 'Sign-in' },

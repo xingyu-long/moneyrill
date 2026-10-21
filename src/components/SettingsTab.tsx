@@ -5,6 +5,7 @@ import {
   KeyRound,
   Landmark,
   LayoutList,
+  ListFilter,
   RefreshCw,
   Shapes,
   ShieldCheck,
@@ -13,6 +14,7 @@ import { SETTINGS_PAGES, settingsPageOf, settingsPath, type SettingsSlug } from 
 import { linkClick, useLocation } from '../state/router.ts';
 import { cn } from '../lib/cn.ts';
 import { useApp } from '../state/AppContext.tsx';
+import { RulesPage } from './RulesPage.tsx';
 import { Card } from './ui/card.tsx';
 import {
   CategoriesPage,
@@ -27,6 +29,7 @@ const ICONS = {
   connections: Landmark,
   data: Database,
   categories: Shapes,
+  rules: ListFilter,
   sync: RefreshCw,
   display: LayoutList,
   'sign-in': KeyRound,
@@ -35,6 +38,7 @@ const PAGES: Record<SettingsSlug, () => React.JSX.Element> = {
   connections: ConnectionsPage,
   data: DataPage,
   categories: CategoriesPage,
+  rules: RulesPage,
   sync: SyncPage,
   display: DisplayPage,
   'sign-in': SignInPage,

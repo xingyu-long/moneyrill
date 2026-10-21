@@ -80,6 +80,9 @@ export function TransactionGroups({
                         {!t.splits.length && t.category_source === 'auto' && (
                           <span className="ml-1 text-[10px]">auto</span>
                         )}
+                        {!t.splits.length && t.category_source === 'rule' && (
+                          <span className="ml-1 text-[10px]">rule</span>
+                        )}
                         {t.splits.length > 0 && !t.split_balanced && (
                           <Badge variant="warning" className="ml-2">
                             Amount changed
@@ -152,6 +155,9 @@ export function TransactionGroups({
                       : '—'}
                   {!t.splits.length && t.category_source === 'auto' && (
                     <small className="ml-1.5 text-[9px] text-muted-foreground">auto</small>
+                  )}
+                  {!t.splits.length && t.category_source === 'rule' && (
+                    <small className="ml-1.5 text-[9px] text-muted-foreground">rule</small>
                   )}
                   {t.splits.length > 0 && !t.split_balanced && (
                     <Badge variant="warning" className="ml-2">

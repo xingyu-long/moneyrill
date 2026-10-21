@@ -30,6 +30,7 @@ describe('Settings pages', () => {
       'Connections',
       'Data',
       'Categories',
+      'Rules',
       'Sync settings & activity',
       'Display and navigation',
       'Sign-in',

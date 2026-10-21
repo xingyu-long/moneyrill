@@ -15,6 +15,7 @@ import { syncRoutes } from './routes/sync.ts';
 import { linkRoutes } from './routes/link.ts';
 import { accountRoutes } from './routes/accounts.ts';
 import { archiveRoutes } from './routes/archive.ts';
+import { ruleRoutes } from './routes/rules.ts';
 import { transactionRoutes } from './routes/transactions.ts';
 import { reportRoutes } from './routes/reports.ts';
 import { investmentRoutes } from './routes/investments.ts';
@@ -92,6 +93,7 @@ export async function createApp(opts: { authStore?: AuthStore; failureDelayMs?: 
   accountRoutes(app);
   archiveRoutes(app);
   transactionRoutes(app);
+  ruleRoutes(app);
   reportRoutes(app);
   investmentRoutes(app);
   await app.register(statics, { root: path.resolve('dist') });

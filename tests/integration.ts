@@ -1967,8 +1967,110 @@ assert.equal(crossSiteEdit.status, 403);
   assert.equal((await request('/sync/schedule', { reset: true }, 'PUT')).data.source, 'default');
   assert.deepEqual(await get(), first);
 }
+// --- Rules: your edit, then a rule, then the automatic category ---
+{
+  const cats = (await request('/categories')).data.categories;
+  const catId = (key: string) => Number(cats.find((c: any) => c.key === key).id);
+  const dining = catId('restaurants');
+  const shopping = catId('shopping');
+  await pool.query("DELETE FROM accounts WHERE id='itest:acct'");
+  await pool.query(
+    "INSERT INTO accounts(id,name,institution,kind,source) VALUES('itest:acct','Sync test','Test','cash','manual')",
+  );
+  await sync({ added: [plaidTxn('r1', { name: 'RULE TEST CAFE', amount: 12.5 })] }, 'rc1');
+  const one = async () =>
+    (await request('/transactions?limit=500&account=itest:acct')).data.transactions.find(
+      (t: any) => t.id === 'itest:r1',
+    );
+  const before = await one();
+  const text = { merchant: { op: 'contains', values: ['rule test'] } };
+  for (const bad of [
+    {},
+    { conditions: {}, category_id: dining },
+    { conditions: text, category_id: 999999 },
+    { conditions: { ...text, accounts: ['nope'] }, category_id: dining },
+  ])
+    assert.equal((await request('/rules', bad)).status, 400, JSON.stringify(bad));
+
+  // Preview writes nothing and says what would change.
+  const shown = (await request('/rules/preview', { conditions: text, category_id: dining })).data;
+  assert.ok(shown.matching >= 1 && shown.changes.some((c: any) => c.id === 'itest:r1'));
+  assert.equal((await one()).category_source, before.category_source, 'a preview changes nothing');
+
+  // Saving without "update existing" leaves existing rows alone; applying updates exactly the previewed set.
+  const r1 = (await request('/rules', { conditions: text, category_id: dining, apply: false }))
+    .data;
+  assert.equal(r1.updated, null);
+  assert.equal((await one()).category_source, before.category_source);
+  const applied = (await request('/rules/' + r1.rule.id + '/apply', {})).data;
+  assert.equal(applied.updated, shown.total);
+  const ruled = await one();
+  assert.equal(ruled.category_source, 'rule');
+  assert.equal(ruled.category.id, dining);
+  assert.equal(
+    (await request('/rules')).data.rules.find((r: any) => r.id === r1.rule.id).last_applied_count,
+    applied.updated,
+  );
+
+  // Your own choice beats the rule, and clearing it brings the rule back.
+  await request('/transactions/itest%3Ar1', { category_id: shopping }, 'PATCH');
+  assert.equal((await one()).category_source, 'user');
+  assert.equal((await request('/rules/' + r1.rule.id + '/apply', {})).data.updated, 0);
+  assert.equal((await one()).category.id, shopping, 'a rule never overwrites your choice');
+  await request('/transactions/itest%3Ar1', { category_id: null }, 'PATCH');
+  assert.equal((await one()).category.id, dining);
+
+  // A later rule wins; moving it up lets the first win again; a rule's category cannot be deleted.
+  const r2 = (await request('/rules', { conditions: text, category_id: shopping, apply: true }))
+    .data;
+  assert.equal((await one()).category.id, shopping);
+  assert.equal(
+    (await request('/rules/order', { ids: [r2.rule.id, r1.rule.id] })).data.rules[0].id,
+    r2.rule.id,
+  );
+  assert.equal((await request('/rules/order', { ids: [r2.rule.id] })).status, 400);
+  await request('/rules/' + r1.rule.id + '/apply', {});
+  assert.equal((await one()).category.id, dining, 'the last rule in the list wins');
+  assert.equal((await request('/categories/' + dining, undefined, 'DELETE')).status, 400);
+
+  // Reports and category counts follow the rule.
+  const counted = (await request('/categories')).data.categories.find((c: any) => c.id === dining);
+  assert.ok(counted.transaction_count >= 1);
+
+  // A sync gives new and changed rows their rule result, and skips split ones.
+  await sync({ added: [plaidTxn('r2', { name: 'RULE TEST DINER', amount: 8 })] }, 'rc2');
+  const synced = (
+    await request('/transactions?limit=500&account=itest:acct')
+  ).data.transactions.find((t: any) => t.id === 'itest:r2');
+  assert.equal(synced.category.id, dining);
+  assert.equal(synced.category_source, 'rule');
+  await sync({ modified: [plaidTxn('r2', { name: 'OTHER SHOP', amount: 8 })] }, 'rc3');
+  const renamed = (
+    await request('/transactions?limit=500&account=itest:acct')
+  ).data.transactions.find((t: any) => t.id === 'itest:r2');
+  assert.notEqual(
+    renamed.category_source,
+    'rule',
+    'a row that stops matching loses the rule result',
+  );
+
+  // Deleting a rule can put its transactions back.
+  assert.equal(
+    (await request('/rules/' + r2.rule.id + '?revert=true', undefined, 'DELETE')).status,
+    200,
+  );
+  assert.equal(
+    (await request('/rules/' + r1.rule.id + '?revert=true', undefined, 'DELETE')).data.reverted >=
+      1,
+    true,
+  );
+  assert.equal((await one()).category_source, before.category_source);
+  assert.equal((await request('/rules/' + r1.rule.id, undefined, 'DELETE')).status, 404);
+  await pool.query("DELETE FROM accounts WHERE id='itest:acct'");
+}
+
 console.log(
-  'PASS: transaction list, filters, paging, edits, sync keeps user edits, groups and categories, splits, manual transactions, monarch import, remap, reports, investment cash flows, typed-in holdings, ticker prices, balance priced at closes, sync schedule',
+  'PASS: transaction list, filters, paging, edits, sync keeps user edits, groups and categories, splits, manual transactions, monarch import, remap, reports, investment cash flows, typed-in holdings, ticker prices, balance priced at closes, sync schedule, rules',
 );
 
 // --- First-run passphrase setup (the real settings table) ---

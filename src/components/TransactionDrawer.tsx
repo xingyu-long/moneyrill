@@ -82,6 +82,7 @@ export function TransactionDetail({
     }
   }
   const autoName = txn.category_source === 'user' ? null : txn.category?.name;
+  const autoLabel = txn.category_source === 'rule' ? 'Rule' : 'Auto';
   // A pending transaction is replaced when it posts, so nothing on it can be changed until then.
   const locked = txn.pending;
   const manual = txn.source === 'manual';
@@ -220,7 +221,10 @@ export function TransactionDetail({
               })
             }
           >
-            <option value="auto">Auto{autoName ? ` (${autoName})` : ''}</option>
+            <option value="auto">
+              {autoLabel}
+              {autoName ? ` (${autoName})` : ''}
+            </option>
             {groupCategories(categories).map((g) => (
               <optgroup key={g.group} label={g.group}>
                 {g.categories.map((c) => (

@@ -12,13 +12,13 @@ reload (Back, Forward, reload and bookmarks work; a modified click opens a new t
 `/api` with the app ([02](02-foundation.md#the-http-shell-serverappts)). **Addresses hold page names, dates and ids only,
 never amounts** (they end up in browser history). The same names are meant to be reused for deep links if an iOS app is built.
 
-| Address                                                                                                                                    | Page                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `/home` (also `/`)                                                                                                                         | Home; an unknown first segment is replaced by `/home` (no extra Back step) |
-| `/accounts`, `/accounts/<id>`                                                                                                              | Accounts; one account (id URL-encoded)                                     |
-| `/investments`, `/transactions`                                                                                                            | those pages                                                                |
-| `/reports/cash-flow`, `/reports/spending`, `/reports/income`, `/reports/category/<id>`, `/reports/merchant/<name>`                         | Reports ([07](07-reports.md#addresses))                                    |
-| `/settings`, `/settings/connections`, `/settings/data`, `/settings/categories`, `/settings/sync`, `/settings/display`, `/settings/sign-in` | Settings                                                                   |
+| Address                                                                                                                                                       | Page                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `/home` (also `/`)                                                                                                                                            | Home; an unknown first segment is replaced by `/home` (no extra Back step) |
+| `/accounts`, `/accounts/<id>`                                                                                                                                 | Accounts; one account (id URL-encoded)                                     |
+| `/investments`, `/transactions`                                                                                                                               | those pages                                                                |
+| `/reports/cash-flow`, `/reports/spending`, `/reports/income`, `/reports/category/<id>`, `/reports/merchant/<name>`                                            | Reports ([07](07-reports.md#addresses))                                    |
+| `/settings`, `/settings/connections`, `/settings/data`, `/settings/categories`, `/settings/rules`, `/settings/sync`, `/settings/display`, `/settings/sign-in` | Settings                                                                   |
 
 A tab is found by its lower-case name as the first segment (`TABS`: Home, Accounts, Investments, Transactions, Reports,
 Settings); a path that names no tab (and is not `/`) is replaced by `/home`. Opening **Reports** from the bar returns to the

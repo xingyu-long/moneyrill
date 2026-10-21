@@ -38,8 +38,8 @@ read the same rows ([07](07-reports.md)).
 | `removed_at`                                      | Plaid removed it: hidden, edits kept, comes back if it reappears                                                |
 | `user_date`, `category_id`, `notes`               | **the owner's edits** (null = use the provider's / automatic)                                                   |
 
-The **effective date** is `coalesce(user_date, date)`; the **effective category** is the owner's choice, else the
-automatic one, else Uncategorized. `connections.transactions_cursor` holds the Plaid sync cursor. Index on the
+The **effective date** is `coalesce(user_date, date)`; the **effective category** is the owner's choice, else a
+rule's result (`rule_category_id`, see [Rules](#rules)), else the automatic one, else Uncategorized. `connections.transactions_cursor` holds the Plaid sync cursor. Index on the
 effective date for the newest-first list.
 
 `categories(id, name, group_name, group_id, emoji, key unique, sort_order)` with a unique lower-case name;
@@ -118,6 +118,41 @@ rows synced earlier; it never touches the owner's own choices.
   same transaction); `DELETE` only an **empty** group ("Move or delete the categories in this group first").
 - A duplicate name answers "A category|group with that name already exists"; unknown ids 404.
 - **The icon picker is built in (no network)**: tabs of emoji, search by name, or paste any emoji (`src/lib/emojis.ts`).
+
+## Rules
+
+`014_rules`: `rules(id, sort_order, conditions jsonb, category_id → categories ON DELETE RESTRICT, last_applied_at,
+last_applied_count)` and on `transactions`: `rule_id` (→ rules, set null on delete) and `rule_category_id`. A rule's
+result is kept apart from the owner's own choice (`category_id`) and from the automatic one, so **the order is: your
+edit, then a rule, then the automatic category, then Uncategorized**. `category_source` is `user`, `rule`, `auto` or
+`none`. Every query that works out the effective category (the list, category counts, report lines) includes the rule.
+
+- **Conditions** (`conditions`, all that are present must match; at least one): `merchant` and `statement` (the merchant
+  name, else the statement text; the statement text) with `contains`, `equals` or `starts_with` against one or more
+  values (any one matches), ignoring case; `amount` with a direction (`debit` = money out, `credit` = money in), an
+  operator (`gt`, `lt`, `eq`, `between`) and dollars compared as decimals on the absolute amount; `categories` (the
+  current category is one of them); `accounts`. **Action:** set the category (`category_id`).
+- **Order.** Rules run top to bottom; each sees the category the ones above left (so a `categories` condition can chain),
+  and the **last match wins**. Pure code: `server/lib/rules.ts` (`matchesConditions`, `resolveRules`).
+- **Never touched by a rule:** a transaction with the owner's own category, a split one (each part has its own category)
+  or one added by hand. A rule never overwrites a choice of yours.
+- **When rules run:** (1) on every sync, for the rows the sync saved, inside the sync's own database transaction behind a
+  savepoint (a rule problem is logged and never costs the sync its data); a row that stops matching loses its rule
+  result; (2) on **Update existing transactions**, only for the one rule, and only for the rows its preview listed.
+  Editing or reordering a rule never changes old transactions by itself.
+- **API:** `GET /api/rules`; `POST /api/rules` and `PATCH /api/rules/:id` with `{conditions, category_id, apply?}`
+  (`apply: true` also updates existing transactions and answers `updated`); `POST /api/rules/preview`
+  `{conditions, category_id, rule_id?}` → `{matching, skipped: {edited, split}, total, changes[≤200]}` where each change
+  is `{id, date, merchant, account, amount, from, to}` (nothing is written); `POST /api/rules/:id/apply` →
+  `{updated}`; `POST /api/rules/order` `{ids}` (every rule once); `DELETE /api/rules/:id?revert=true|false` (`revert`
+  puts the transactions the rule categorised back to automatic). Unknown categories or accounts are refused; a category
+  used as a rule's action cannot be deleted ("change or delete the rule first").
+- **Settings → Rules** (`/settings/rules`): the count, search, **Create rule**, the rules as sentences ("If merchant name
+  contains vmware → Recategorize to Paychecks") with a last-applied line, drag handles and up/down buttons for the order.
+  The editor has **Settings** and **Preview changes (n)** tabs, the matching count (and how many matches were skipped as
+  yours or split), **Update existing transactions**, Delete (offering to revert) and Save.
+- Not built yet: renaming the merchant, tags, owner, review status, hide, goals, a rule from the transaction drawer,
+  suggestions from repeated edits.
 
 ## Reading and editing
 
@@ -243,6 +278,12 @@ own type-aware display and sign handling, so it is a separate feature.
   `merchant` returns `total`; cursor paging is stable; a bad cursor or filter is refused (integration).
 - Categories: Uncategorized cannot be deleted; deleting a category returns rows to automatic; a non-empty group cannot be
   deleted; duplicate names are refused; counts treat splits per part (integration).
+- Rules (`tests/rules.test.ts`, `tests/rules-ui.test.ts`, integration): case-insensitive text matching with any value, amount
+  direction and size with the bank sign, every condition required and an empty rule matching nothing, order with the last
+  match winning and chained categories, bodies refused; a preview writes nothing; applying changes exactly what was
+  previewed; your own category beats a rule and clearing it brings the rule back; sync gives new rows their rule result
+  and a row that stops matching loses it; reorder needs every id; a rule's category cannot be deleted; deleting with
+  revert puts rows back to automatic.
 - Monarch (`tests/monarch.test.ts`, integration): CSV edge cases (quotes, CRLF, BOM, unreadable lines by number only), sign
   flip, last-four matching with skips and reasons, the before-window / inside-window rules, one-to-one matching within 3
   days, edits never overwritten, unknown categories created in the Imported group, a repeat import adds nothing, the

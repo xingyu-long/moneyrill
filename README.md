@@ -38,6 +38,7 @@ _Screenshots of the staging app with its made-up demo data (the STAGING badge an
 - **Net worth** over time across cash, cards, loans and investments, with a page and history for each account.
 - **Investments**: holdings, allocation, per-security detail, and a return that leaves out deposits and withdrawals, compared with the S&P 500 and Nasdaq-100.
 - **Transactions** you can edit (date, category, notes), split, or add yourself (an RSU vest, a 401(k) contribution). A sync never overwrites your edits.
+- **Rules** that put transactions in the right category (for example, merchant contains "costco" → Groceries), with a preview and a bulk update of existing transactions. Your own choice always wins over a rule.
 - **Reports**: cash flow, spending and income by category and merchant.
 - **Import and export**: a Monarch CSV import, a JSON archive, CSV downloads.
 - **Private mode** hides every amount; the calm Zen look in light and dark; a phone layout.

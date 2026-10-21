@@ -4,6 +4,10 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Added
+
+- **Rules** (Settings → Rules): "if a transaction looks like this, give it that category". Conditions on merchant name, original statement, amount, category and account; they run top to bottom (drag to reorder) and the last match wins. The editor previews exactly which transactions would change, and **Update existing transactions** applies that preview in bulk. Rules also run on every sync. Your own category choice always wins over a rule, and a rule never touches split transactions or ones you added. Migration `014_rules.sql` is additive.
+
 ### Fixed
 
 - **Sign-in could be skipped with a percent-encoded path**: the sign-in and host checks looked at the path as written, but the router decodes it, so a request like `/%61pi/overview` reached the data without a session. The checks now use the route the request is routed to. Upgrade, especially with `ALLOW_LAN`.

@@ -21,6 +21,7 @@ import {
 } from '../lib/transactions.ts';
 import { lineKindSql, MERCHANT_SQL } from '../lib/reports.ts';
 import { plaid } from './plaid-client.ts';
+import { applyRulesToSynced } from './rules.ts';
 
 const CARD_OR_BANK = ['cash', 'credit'];
 
@@ -174,6 +175,10 @@ export async function applyTransactionChanges(
          AND NOT EXISTS (SELECT 1 FROM transaction_splits x WHERE x.transaction_id=n.id)`,
         [c.fromId, c.toId],
       );
+    await applyRulesToSynced(
+      client,
+      changes.upserts.map((t) => t.id),
+    );
     if (changes.removeIds.length)
       await client.query(
         'UPDATE transactions SET removed_at=now(),updated_at=now() WHERE id=ANY($1::text[]) AND removed_at IS NULL',
@@ -232,17 +237,19 @@ export async function removeSplits(id: string) {
 const SELECT = `SELECT t.id,t.account_id,a.name AS account_name,a.mask AS account_mask,a.institution,a.included AS account_included,
   coalesce(t.user_date,t.date)::text AS date,t.date::text AS provider_date,t.user_date::text AS user_date,
   t.amount,t.currency,t.name,t.merchant_name,t.pending,t.notes,t.source,
-  coalesce(uc.id,ac.id,un.id) AS category_id,coalesce(uc.name,ac.name,un.name) AS category_name,
-  coalesce(uc.emoji,ac.emoji,un.emoji) AS category_emoji,coalesce(uc.group_name,ac.group_name,un.group_name) AS category_group,
-  CASE WHEN uc.id IS NOT NULL THEN 'user' WHEN ac.id IS NOT NULL AND ac.key<>'uncategorized' THEN 'auto' ELSE 'none' END AS category_source,
+  coalesce(uc.id,rc.id,ac.id,un.id) AS category_id,coalesce(uc.name,rc.name,ac.name,un.name) AS category_name,
+  coalesce(uc.emoji,rc.emoji,ac.emoji,un.emoji) AS category_emoji,coalesce(uc.group_name,rc.group_name,ac.group_name,un.group_name) AS category_group,
+  t.rule_id,
+  CASE WHEN uc.id IS NOT NULL THEN 'user' WHEN rc.id IS NOT NULL THEN 'rule' WHEN ac.id IS NOT NULL AND ac.key<>'uncategorized' THEN 'auto' ELSE 'none' END AS category_source,
   (SELECT coalesce(json_agg(json_build_object('id',s.id,'amount',s.amount::text,'notes',s.notes,'date',s.date::text,'category_id',coalesce(sc.id,un.id),'category_name',coalesce(sc.name,un.name),'category_emoji',coalesce(sc.emoji,un.emoji),'category_group',coalesce(sc.group_name,un.group_name)) ORDER BY s.sort_order,s.id),'[]'::json)
     FROM transaction_splits s LEFT JOIN categories sc ON sc.id=s.category_id WHERE s.transaction_id=t.id) AS splits
   FROM transactions t JOIN accounts a ON a.id=t.account_id
   LEFT JOIN categories uc ON uc.id=t.category_id
+  LEFT JOIN categories rc ON rc.id=t.rule_category_id
   LEFT JOIN categories ac ON ac.key=t.auto_category_key
   LEFT JOIN categories un ON un.key='uncategorized'`;
 const EFFECTIVE_DATE = 'coalesce(t.user_date,t.date)';
-const EFFECTIVE_CATEGORY = 'coalesce(uc.id,ac.id,un.id)';
+const EFFECTIVE_CATEGORY = 'coalesce(uc.id,rc.id,ac.id,un.id)';
 
 function shape(r: any) {
   const { category_id, category_name, category_emoji, category_group, splits, ...rest } = r;
@@ -345,6 +352,7 @@ export async function listTransactions(query: unknown) {
           await pool.query(
             `SELECT count(*) AS n FROM transactions t JOIN accounts a ON a.id=t.account_id
              LEFT JOIN categories uc ON uc.id=t.category_id
+             LEFT JOIN categories rc ON rc.id=t.rule_category_id
              LEFT JOIN categories ac ON ac.key=t.auto_category_key
              LEFT JOIN categories un ON un.key='uncategorized'
              WHERE ${unpaged.where.join(' AND ')}`,

@@ -101,9 +101,10 @@ export const MERCHANT_SQL = "coalesce(nullif(t.merchant_name,''),t.name)";
  * Every report line: unsplit transactions as they are, split transactions as their parts (own date, own category).
  * Pending transactions are left out until they post: they can still change or disappear, and Monarch skips them too.
  */
-export const LINES_SQL = `SELECT t.id AS txn_id,t.account_id,coalesce(t.user_date,t.date) AS date,t.amount,coalesce(uc.id,ac.id,un.id) AS category_id,${MERCHANT_SQL} AS merchant
+export const LINES_SQL = `SELECT t.id AS txn_id,t.account_id,coalesce(t.user_date,t.date) AS date,t.amount,coalesce(uc.id,rc.id,ac.id,un.id) AS category_id,${MERCHANT_SQL} AS merchant
   FROM transactions t
   LEFT JOIN categories uc ON uc.id=t.category_id
+  LEFT JOIN categories rc ON rc.id=t.rule_category_id
   LEFT JOIN categories ac ON ac.key=t.auto_category_key
   LEFT JOIN categories un ON un.key='uncategorized'
   WHERE t.removed_at IS NULL AND t.currency='USD' AND NOT t.pending

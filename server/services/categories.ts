@@ -30,8 +30,9 @@ export async function listCategories() {
        LEFT JOIN (
          -- an unsplit transaction counts once; a split one counts once per part
          SELECT cid AS id,count(*) AS count FROM (
-           SELECT coalesce(uc.id,ac.id,un.id) AS cid FROM transactions t
+           SELECT coalesce(uc.id,rc.id,ac.id,un.id) AS cid FROM transactions t
            LEFT JOIN categories uc ON uc.id=t.category_id
+           LEFT JOIN categories rc ON rc.id=t.rule_category_id
            LEFT JOIN categories ac ON ac.key=t.auto_category_key
            LEFT JOIN categories un ON un.key='uncategorized'
            WHERE t.removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id)
@@ -106,6 +107,12 @@ export async function deleteCategory(id: number) {
   if (!row) throw notFound('Category');
   if (row.key === 'uncategorized')
     throw new Error('Uncategorized is the fallback and cannot be deleted');
+  const used = (await pool.query('SELECT count(*)::int AS n FROM rules WHERE category_id=$1', [id]))
+    .rows[0].n;
+  if (used)
+    throw new Error(
+      `${used === 1 ? 'A rule uses' : used + ' rules use'} this category: change or delete ${used === 1 ? 'it' : 'them'} first`,
+    );
   await pool.query('DELETE FROM categories WHERE id=$1', [id]);
   return { ok: true };
 }

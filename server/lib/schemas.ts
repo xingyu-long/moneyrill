@@ -263,3 +263,51 @@ export function ensure<T extends z.ZodType>(
   if (!result.success) throw new Error(message);
   return result.data;
 }
+
+// --- Rules ---
+const textMatch = z
+  .object({
+    op: z.enum(['contains', 'equals', 'starts_with']),
+    values: z
+      .array(
+        z
+          .string()
+          .transform((v) => v.trim())
+          .pipe(z.string().min(1).max(200)),
+      )
+      .min(1)
+      .max(20),
+  })
+  .strict();
+const ruleAmount = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/);
+const amountMatch = z
+  .object({
+    direction: z.enum(['debit', 'credit']),
+    op: z.enum(['gt', 'lt', 'eq', 'between']),
+    value: ruleAmount,
+    value2: ruleAmount.optional(),
+  })
+  .strict()
+  .refine((a) => (a.op === 'between') === (a.value2 !== undefined));
+const ruleConditions = z
+  .object({
+    merchant: textMatch.optional(),
+    statement: textMatch.optional(),
+    amount: amountMatch.optional(),
+    categories: z.array(z.number().int().positive()).min(1).max(100).optional(),
+    accounts: z.array(z.string().min(1).max(200)).min(1).max(100).optional(),
+  })
+  .strict()
+  .refine((c) => Object.values(c).some((v) => v !== undefined));
+/** POST /api/rules/preview, and the rule part of POST/PATCH /api/rules. */
+export const ruleBody = z
+  .object({ conditions: ruleConditions, category_id: z.number().int().positive() })
+  .strict();
+export const previewRuleBody = ruleBody
+  .extend({ rule_id: z.number().int().positive().optional() })
+  .strict();
+/** POST /api/rules, PATCH /api/rules/:id: `apply` also updates the existing transactions it matches. */
+export const saveRuleBody = ruleBody.extend({ apply: z.boolean().default(false) }).strict();
+export const ruleOrderBody = z
+  .object({ ids: z.array(z.number().int().positive()).min(1).max(500) })
+  .strict();

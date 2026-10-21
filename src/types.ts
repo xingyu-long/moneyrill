@@ -125,7 +125,8 @@ export type Transaction = {
   pending: boolean;
   notes: string;
   category: { id: number; name: string; emoji: string; group: string } | null;
-  category_source: 'user' | 'auto' | 'none';
+  category_source: 'user' | 'rule' | 'auto' | 'none';
+  rule_id: number | null;
   /** Where it came from: the bank, a Monarch import, or you. */
   source: 'plaid' | 'monarch' | 'manual';
   /** Empty when the transaction is not split. */

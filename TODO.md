@@ -16,7 +16,9 @@ Open items, roughly by priority. What the app does today is specified in `docs/s
 
 - [x] **Phase 1b: one-off Monarch CSV import** for bank and card accounts (Settings → Import from Monarch).
 - [ ] **Phase 2: brokerage activity** via `/investments/transactions/get` (confirmed to work for one brokerage; others not tested): buys, sells, dividends, transfers, journal pairing, own display and sign handling.
-- [ ] Rules ("always categorise this merchant as X"), tags, owner, review status, attachments, bulk edit, CSV export of transactions, import of `categories`/`transactions` from the JSON archive.
+- [x] Rules (Settings → Rules): conditions on merchant, statement, amount, category and account, set the category, preview and bulk update, applied on every sync. See `docs/specs/06-transactions-and-categories.md`.
+- [ ] Rules, next: rename merchant, "Create a rule" from the transaction drawer, suggestions from repeated manual edits, optionally replacing your own choices.
+- [ ] Tags, owner, review status, attachments, bulk edit, CSV export of transactions, import of `categories`/`transactions` from the JSON archive.
 - [ ] Mapping editor for Plaid category -> category (the mapping is fixed in code; existing automatic categories are recomputed at start-up). Drag to reorder groups and categories.
 
 ## Reports
