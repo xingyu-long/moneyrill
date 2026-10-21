@@ -85,7 +85,7 @@ export function TransactionDetail({
     }
   }
   const autoName = txn.category_source === 'user' ? null : txn.category?.name;
-  const autoLabel = brokerage ? 'Not counted' : txn.category_source === 'rule' ? 'Rule' : 'Auto';
+  const autoLabel = txn.category_source === 'rule' ? 'Rule' : brokerage ? 'Not counted' : 'Auto';
   // A pending transaction is replaced when it posts, so nothing on it can be changed until then.
   const locked = txn.pending;
   const manual = txn.source === 'manual';
@@ -266,7 +266,8 @@ export function TransactionDetail({
       )}
       {brokerage && (
         <Fineprint>
-          Activity in a brokerage counts in Reports only once you give it a category.
+          Activity in a brokerage counts in Reports only once it has a category, yours or a
+          rule&apos;s.
         </Fineprint>
       )}
       {splitting && !locked && (

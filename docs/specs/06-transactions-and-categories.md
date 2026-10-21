@@ -131,26 +131,34 @@ edit, then a rule, then the automatic category, then Uncategorized**. `category_
   name, else the statement text; the statement text) with `contains`, `equals` or `starts_with` against one or more
   values (any one matches), ignoring case; `amount` with a direction (`debit` = money out, `credit` = money in), an
   operator (`gt`, `lt`, `eq`, `between`) and dollars compared as decimals on the absolute amount; `categories` (the
-  current category is one of them); `accounts`. **Action:** set the category (`category_id`).
+  current category is one of them); `accounts` (any account a transaction can be on: bank, card, investment, and any
+  account kept by hand; not a synced loan). **Action:** set the category (`category_id`).
+- **Brokerage activity too** (`016_brokerage_rules`: `rule_id` and `rule_category_id` on `investment_transactions`). It
+  has no merchant, so its name is matched as both merchant name and original statement; it starts with no category
+  ("Not counted", so a `categories` condition matches only what an earlier rule set). A rule's category makes it count
+  like the owner's own ([Brokerage activity](#brokerage-activity)); the owner's own still wins.
 - **Order.** Rules run top to bottom; each sees the category the ones above left (so a `categories` condition can chain),
   and the **last match wins**. Pure code: `server/lib/rules.ts` (`matchesConditions`, `resolveRules`).
 - **Never touched by a rule:** a transaction with the owner's own category, a split one (each part has its own category)
   or one added by hand. A rule never overwrites a choice of yours.
-- **When rules run:** (1) on every sync, for the rows the sync saved, inside the sync's own database transaction behind a
+- **When rules run:** (1) on every sync, for the rows the sync saved (bank and card transactions, and brokerage
+  activity), inside that save's own database transaction behind a
   savepoint (a rule problem is logged and never costs the sync its data); a row that stops matching loses its rule
   result; (2) on **Update existing transactions**, only for the one rule, and only for the rows its preview listed.
   Editing or reordering a rule never changes old transactions by itself.
 - **API:** `GET /api/rules`; `POST /api/rules` and `PATCH /api/rules/:id` with `{conditions, category_id, apply?}`
   (`apply: true` also updates existing transactions and answers `updated`); `POST /api/rules/preview`
-  `{conditions, category_id, rule_id?}` → `{matching, skipped: {edited, split}, total, changes[≤200]}` where each change
+  `{conditions, category_id, rule_id?}` → `{matching, skipped: {edited, split, manual}, total, changes[≤200]}` where each change
   is `{id, date, merchant, account, amount, from, to}` (nothing is written); `POST /api/rules/:id/apply` →
   `{updated}`; `POST /api/rules/order` `{ids}` (every rule once); `DELETE /api/rules/:id?revert=true|false` (`revert`
-  puts the transactions the rule categorised back to automatic). Unknown categories or accounts are refused; a category
+  puts the transactions the rule categorised back to automatic, and brokerage activity back to "Not counted"). Unknown categories or accounts are refused; a category
   used as a rule's action cannot be deleted ("change or delete the rule first").
 - **Settings → Rules** (`/settings/rules`): the count, search, **Create rule**, the rules as sentences ("If merchant name
   contains vmware → Recategorize to Paychecks") with a last-applied line, drag handles and up/down buttons for the order.
-  The editor has **Settings** and **Preview changes (n)** tabs, the matching count (and how many matches were skipped as
-  yours or split), **Update existing transactions**, Delete (offering to revert) and Save.
+  The editor has **Settings** and **Preview changes (n)** tabs, the matching count and **why any match is skipped**
+  ("0 matching transactions · 1 skipped because you added it"; with several reasons "43 skipped (40 you categorised,
+  1 split, 2 you added)"; `matchSummary` in `src/lib/rules.ts`), **Update existing transactions**, Delete (offering to
+  revert) and Save.
 - Not built yet: renaming the merchant, tags, owner, review status, hide, goals, a rule from the transaction drawer,
   suggestions from repeated edits.
 
@@ -270,11 +278,12 @@ no merchant, no automatic category), and no money query may count it by accident
   classes. Saved in one database transaction; provider columns only, **never the owner's category or notes**. Quiet
   codes as for bank transactions; another failure adds `INVESTMENTS_<code>` and never touches balances, holdings or
   bank transactions. Zero-amount share moves and journals between accounts are stored as sent (not paired yet).
-- **Counting.** Brokerage activity has no automatic category and **counts nowhere until the owner gives it one**; that
+- **Counting.** Brokerage activity has no automatic category and **counts nowhere until it has one**, the owner's or a
+  rule's ([Rules](#rules)); that
   keeps a bank → brokerage deposit, a buy or a share move from counting twice. Once categorised (a dividend → Dividends &
   Capital Gains) it is a report line like any transaction of that category type ([07](07-reports.md)), and it is in the
   category counts. It is **never** an investment cash flow ([05](05-investments.md)): a dividend paid inside a
-  brokerage is growth, not money added. Rules never read or change it.
+  brokerage is growth, not money added. Rules can categorise it; the owner's own category wins over a rule's.
 - **Listing.** `GET /api/transactions` returns brokerage rows next to bank and card rows by default (so a Reports list
   matches its total); `investments=hide` (the only accepted value) leaves out every row of an `investment` account,
   manual ones included, and all brokerage activity. Brokerage rows obey `from`/`to`, `account(s)`, `q` (name, notes,
@@ -311,6 +320,10 @@ price, fees, security: {symbol, name} | null}`, `category_source` `user` or `non
   `merchant` returns `total`; cursor paging is stable; a bad cursor or filter is refused (integration).
 - Categories: Uncategorized cannot be deleted; deleting a category returns rows to automatic; a non-empty group cannot be
   deleted; duplicate names are refused; counts treat splits per part (integration).
+- Rules on brokerage activity (integration, `tests/rules-ui.test.ts`): the preview finds a brokerage journal and
+  counts a typed-in copy as skipped because you added it; applying categorises it as `rule` and it counts in Reports;
+  your own category wins; a sync gives new brokerage rows their rule result; deleting with revert puts them back to
+  "Not counted"; the footer wording for every skip reason; the account list offers investment accounts.
 - Rules (`tests/rules.test.ts`, `tests/rules-ui.test.ts`, integration): case-insensitive text matching with any value, amount
   direction and size with the bank sign, every condition required and an empty rule matching nothing, order with the last
   match winning and chained categories, bodies refused; a preview writes nothing; applying changes exactly what was

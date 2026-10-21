@@ -912,7 +912,7 @@ describe('Investment accounts on the Transactions page', () => {
     const select = await screen.findByLabelText('Category');
     expect(within(select).getByRole('option', { name: 'Not counted' })).toBeInTheDocument();
     expect(
-      screen.getByText(/counts in Reports only once you give it a category/),
+      screen.getByText(/counts in Reports only once it has a category, yours or a rule/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Split' })).toBeNull();
     expect(screen.queryByText('View 4 transactions')).toBeNull();

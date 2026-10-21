@@ -2285,8 +2285,112 @@ assert.equal(crossSiteEdit.status, 403);
   await pool.query("DELETE FROM securities WHERE id='itest:sec'");
 }
 
+// --- Rules on brokerage activity, and a preview that says why a match is skipped ---
+{
+  await pool.query("DELETE FROM accounts WHERE id IN ('itest:pcra','itest:k')");
+  await pool.query(
+    "INSERT INTO accounts(id,name,institution,kind,source) VALUES('itest:pcra','PCRA test','Test','investment','manual'),('itest:k','401k test','Test','investment','manual')",
+  );
+  const cats = (await request('/categories')).data.categories;
+  const catId = (key: string) => Number(cats.find((c: any) => c.key === key).id);
+  const contribution = catId('401k_contribution');
+  const range = 'from=2025-04-01&to=2025-04-30';
+  const income = async () =>
+    Number((await request('/reports/cash-flow?' + range)).data.totals.income);
+  const row = async (id: string) =>
+    (await request(`/transactions?limit=500&${range}`)).data.transactions.find(
+      (t: any) => t.id === id,
+    );
+  const journal = (id: string, date: string) => ({
+    investment_transaction_id: id,
+    account_id: 'pcra',
+    security_id: null,
+    date,
+    name: 'Journal FRM ...819',
+    quantity: 0,
+    amount: -2095.48,
+    price: null,
+    fees: null,
+    type: 'cash',
+    subtype: 'contribution',
+    iso_currency_code: 'USD',
+  });
+  const accountsMap = new Map([['pcra', 'itest:pcra']]);
+  const save = (txns: any[]) =>
+    applyInvestmentChanges(
+      'itest',
+      planInvestmentChanges(
+        'itest',
+        [{ transactions: txns, securities: [] }],
+        accountsMap,
+        'plaid_sandbox',
+        { from: '2025-04-01', to: '2025-04-30', complete: false },
+        [],
+      ),
+      false,
+    );
+  await save([journal('j1', '2025-04-01')]);
+  // the same journal, typed in by hand on another account
+  const typed = (
+    await request('/transactions', {
+      account_id: 'itest:k',
+      date: '2025-04-02',
+      amount: '2095.48',
+      direction: 'in',
+      name: 'Journal FRM ...819',
+    })
+  ).data;
+  const start = await income();
+
+  // The preview finds the brokerage row and says why the typed one is left alone.
+  const conditions = { statement: { op: 'contains', values: ['journal frm'] } };
+  const shown = (await request('/rules/preview', { conditions, category_id: contribution })).data;
+  assert.equal(shown.matching, 1);
+  assert.equal(shown.skipped.manual, 1, 'a transaction you added is counted as skipped');
+  const change = shown.changes.find((c: any) => c.id === 'itest:j1');
+  assert.deepEqual([change.from.name, change.to.id], ['Not counted', contribution]);
+
+  // Applying it categorises the brokerage row, which then counts in Reports.
+  const made = (await request('/rules', { conditions, category_id: contribution, apply: true }))
+    .data;
+  assert.equal(made.updated, 1);
+  const ruled = await row('itest:j1');
+  assert.deepEqual(
+    [ruled.category.id, ruled.category_source, ruled.rule_id],
+    [contribution, 'rule', made.rule.id],
+  );
+  assert.equal((await row(typed.id)).category_source, 'none', 'the typed one is untouched');
+  assert.equal(Number((await income()) - start).toFixed(2), '2095.48');
+
+  // Your own choice wins over the rule, and clearing it brings the rule back.
+  await request('/transactions/itest%3Aj1', { category_id: catId('other_income') }, 'PATCH');
+  assert.equal((await row('itest:j1')).category_source, 'user');
+  assert.equal((await request('/rules/' + made.rule.id + '/apply', {})).data.updated, 0);
+  await request('/transactions/itest%3Aj1', { category_id: null }, 'PATCH');
+  assert.equal((await row('itest:j1')).category.id, contribution);
+
+  // A sync gives new brokerage activity its rule result.
+  await save([journal('j1', '2025-04-01'), journal('j2', '2025-04-15')]);
+  const synced = await row('itest:j2');
+  assert.deepEqual([synced.category.id, synced.category_source], [contribution, 'rule']);
+  assert.ok(
+    (await request('/transactions?limit=500&categories=' + contribution)).data.transactions.some(
+      (t: any) => t.id === 'itest:j2',
+    ),
+  );
+
+  // Deleting the rule with revert puts both back to not counted.
+  const removed = (await request('/rules/' + made.rule.id + '?revert=true', undefined, 'DELETE'))
+    .data;
+  assert.equal(removed.reverted, 2);
+  assert.equal((await row('itest:j1')).category, null);
+  assert.equal(await income(), start);
+
+  await pool.query("DELETE FROM accounts WHERE id IN ('itest:pcra','itest:k')");
+}
+
 console.log(
-  'PASS: transaction list, filters, paging, edits, sync keeps user edits, groups and categories, splits, manual transactions, monarch import, remap, reports, investment cash flows, typed-in holdings, ticker prices, balance priced at closes, sync schedule, rules, brokerage activity',
+  'PASS: transaction list, filters, paging, edits, sync keeps user edits, groups and categories, splits, manual transactions, monarch import, remap, reports, investment cash flows, typed-in holdings, ticker prices, balance priced at closes, sync schedule, rules, brokerage activity, rules on brokerage activity',
 );
 
 // --- First-run passphrase setup (the real settings table) ---

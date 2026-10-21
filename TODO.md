@@ -26,7 +26,7 @@ Open items, roughly by priority. What the app does today is specified in `docs/s
 
 - [x] Reports tab: Cash flow, Spending, Income, with Date and Filters (categories, accounts). See `docs/specs/07-reports.md`.
 - [ ] **Phase 2:** saved reports (Save / Reports menu; decide browser-only vs a `saved_reports` table), By group and By merchant breakdowns, stacked bars by category, Merchants, Amount and Tags filters, PNG download, "Edit multiple" on the report list, Weekly interval.
-- [ ] Brokerage activity counts in Reports only when you categorise it row by row (no automatic categories yet).
+- [ ] Brokerage activity counts in Reports only once it has a category, yours or a rule's (no automatic categories yet).
 
 ## Data and accuracy
 

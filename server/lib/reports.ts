@@ -100,7 +100,7 @@ export const MERCHANT_SQL = "coalesce(nullif(t.merchant_name,''),t.name)";
 /**
  * Every report line: unsplit transactions as they are, split transactions as their parts (own date, own category).
  * Pending transactions are left out until they post: they can still change or disappear, and Monarch skips them too.
- * Brokerage activity is a line only once the owner gave it a category (`origin` is `investment`, otherwise `bank`);
+ * Brokerage activity is a line only once it has a category, the owner's or a rule's (`origin` is `investment`, otherwise `bank`);
  * an uncategorised buy, deposit or share move counts nowhere, so nothing is counted twice.
  */
 export const LINES_SQL = `SELECT t.id AS txn_id,t.account_id,coalesce(t.user_date,t.date) AS date,t.amount,coalesce(uc.id,rc.id,ac.id,un.id) AS category_id,${MERCHANT_SQL} AS merchant,'bank' AS origin
@@ -117,6 +117,6 @@ export const LINES_SQL = `SELECT t.id AS txn_id,t.account_id,coalesce(t.user_dat
   JOIN transactions t ON t.id=s.transaction_id AND t.removed_at IS NULL AND t.currency='USD' AND NOT t.pending
   LEFT JOIN categories un ON un.key='uncategorized'
   UNION ALL
-  SELECT i.id,i.account_id,i.date,i.amount,i.category_id,i.name,'investment'
+  SELECT i.id,i.account_id,i.date,i.amount,coalesce(i.category_id,i.rule_category_id),i.name,'investment'
   FROM investment_transactions i
-  WHERE i.removed_at IS NULL AND i.currency='USD' AND i.category_id IS NOT NULL`;
+  WHERE i.removed_at IS NULL AND i.currency='USD' AND coalesce(i.category_id,i.rule_category_id) IS NOT NULL`;

@@ -10,6 +10,7 @@ import { QUIET_TRANSACTION_ERRORS } from '../lib/transactions.ts';
 import { lineKindSql } from '../lib/reports.ts';
 import { ensure, updateInvestmentBody } from '../lib/schemas.ts';
 import { plaid } from './plaid-client.ts';
+import { applyRulesToSynced } from './rules.ts';
 
 const FIRST_DAYS = 730; // Plaid's longest history
 const LATER_DAYS = 30;
@@ -141,6 +142,11 @@ export async function applyInvestmentChanges(
       await client.query('UPDATE connections SET investments_backfilled_at=now() WHERE id=$1', [
         connectionId,
       ]);
+    await applyRulesToSynced(
+      client,
+      changes.upserts.map((t) => t.id),
+      'investment',
+    );
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');
@@ -155,10 +161,10 @@ export async function applyInvestmentChanges(
 const SELECT = `SELECT i.id,i.account_id,a.name AS account_name,a.mask AS account_mask,a.institution,a.included AS account_included,a.kind AS account_kind,
   i.date::text AS date,i.amount::text AS amount,i.currency,i.name,i.notes,i.type,i.subtype,
   trim_scale(i.quantity)::text AS quantity,trim_scale(i.price)::text AS price,trim_scale(i.fees)::text AS fees,
-  c.id AS category_id,c.name AS category_name,c.emoji AS category_emoji,c.group_name AS category_group,
+  c.id AS category_id,i.category_id AS user_category_id,i.rule_id,c.name AS category_name,c.emoji AS category_emoji,c.group_name AS category_group,
   s.symbol AS security_symbol,s.name AS security_name
   FROM investment_transactions i JOIN accounts a ON a.id=i.account_id
-  LEFT JOIN categories c ON c.id=i.category_id
+  LEFT JOIN categories c ON c.id=coalesce(i.category_id,i.rule_category_id)
   LEFT JOIN securities s ON s.id=i.security_id`;
 
 /** The same shape as a bank or card row, plus `activity` and `investment`. */
@@ -189,8 +195,8 @@ function shape(r: any) {
           group: r.category_group,
         }
       : null,
-    category_source: r.category_id ? 'user' : 'none',
-    rule_id: null,
+    category_source: r.user_category_id ? 'user' : r.category_id ? 'rule' : 'none',
+    rule_id: r.rule_id === null ? null : Number(r.rule_id),
     splits: [],
     split_balanced: true,
     activity: 'investment' as const,
@@ -235,10 +241,12 @@ export async function listActivity(f: ActivityFilter) {
   if (f.to) add('i.date <= ?::date', f.to);
   if (f.account) add('i.account_id = ?', f.account);
   if (f.accounts?.length) add('i.account_id = ANY(?::text[])', f.accounts);
-  if (f.categories.length) add('i.category_id = ANY(?::bigint[])', f.categories);
+  // Your category, else a rule's: the one the row counts under.
+  const category = 'coalesce(i.category_id,i.rule_category_id)';
+  if (f.categories.length) add(`${category} = ANY(?::bigint[])`, f.categories);
   if (f.type)
     add(
-      `i.category_id IS NOT NULL AND i.currency='USD' AND ${lineKindSql('i.category_id', 'i.amount')} = ?`,
+      `${category} IS NOT NULL AND i.currency='USD' AND ${lineKindSql(category, 'i.amount')} = ?`,
       f.type,
     );
   if (f.q?.trim())

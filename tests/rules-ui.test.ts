@@ -5,7 +5,9 @@ import {
   describeConditions,
   draftOf,
   emptyDraft,
+  matchSummary,
   moved,
+  ruleAccounts,
   type Rule,
 } from '../src/lib/rules.ts';
 
@@ -63,4 +65,32 @@ test('moving a rule changes its place and nothing else', () => {
   assert.deepEqual(moved([1, 2, 3, 4], 0, 1), [2, 1, 3, 4]);
   const same = [1, 2];
   assert.equal(moved(same, 0, 5), same);
+});
+
+test('the footer says why matches are skipped, so a zero is never a mystery', () => {
+  const s = (matching: number, edited = 0, split = 0, manual = 0) =>
+    matchSummary({ matching, skipped: { edited, split, manual } });
+  assert.equal(s(1), '1 matching transaction');
+  assert.equal(s(3), '3 matching transactions');
+  assert.equal(s(0, 0, 0, 1), '0 matching transactions · 1 skipped because you added it');
+  assert.equal(s(0, 0, 0, 2), '0 matching transactions · 2 skipped because you added them');
+  assert.equal(s(2, 1), '2 matching transactions · 1 skipped because you categorised it yourself');
+  assert.equal(s(0, 0, 3), '0 matching transactions · 3 skipped because they are split');
+  assert.equal(
+    s(0, 40, 1, 2),
+    '0 matching transactions · 43 skipped (40 you categorised, 1 split, 2 you added)',
+  );
+});
+
+test('a rule can be limited to any account a transaction can be on, brokerages included', () => {
+  const a = (id: string, kind: string, source = 'plaid') => ({ id, kind, source });
+  const ids = ruleAccounts([
+    a('checking', 'cash'),
+    a('card', 'credit'),
+    a('pcra', 'investment'),
+    a('401k', 'investment', 'manual'),
+    a('mortgage', 'loan'),
+    a('private-loan', 'loan', 'manual'),
+  ]).map((x) => x.id);
+  assert.deepEqual(ids, ['checking', 'card', 'pcra', '401k', 'private-loan']);
 });

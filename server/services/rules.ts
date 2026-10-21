@@ -50,18 +50,41 @@ const ruleDefs = async (db: Db): Promise<RuleDef[]> =>
     (r) => ({ id: Number(r.id), conditions: r.conditions, category_id: Number(r.category_id) }),
   );
 
-/** The transactions a rule can touch: not added by hand, not split (each part has its own category). */
-const ROWS_SQL = `SELECT t.id,t.date::text AS date,t.amount::text AS amount,t.account_id,a.name AS account_name,
-    coalesce(nullif(t.merchant_name,''),t.name) AS merchant,t.name AS statement,t.source,
+/** The category a brokerage row has before any rule: none ("Not counted"). No real category has this id. */
+const NOT_COUNTED = 0;
+
+/**
+ * Every row a rule looks at: bank and card transactions, and brokerage activity (which has no merchant, so its name is
+ * both merchant and statement, and no automatic category). Rows added by hand, split rows and rows you categorised
+ * are read too, so a preview can say how many it skipped, but a rule never changes them.
+ */
+const ROWS_SQL = `SELECT * FROM (
+  SELECT 'bank' AS origin,t.id,t.date::text AS date,t.amount::text AS amount,t.account_id,a.name AS account_name,
+    coalesce(nullif(t.merchant_name,''),t.name) AS merchant,t.name AS statement,t.source='manual' AS manual,
     t.category_id AS user_category_id,t.rule_id,t.rule_category_id,
     coalesce(ac.id,un.id) AS base_category_id,
     EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id) AS split
   FROM transactions t JOIN accounts a ON a.id=t.account_id
   LEFT JOIN categories ac ON ac.key=t.auto_category_key
   LEFT JOIN categories un ON un.key='uncategorized'
-  WHERE t.removed_at IS NULL AND t.source<>'manual'`;
+  WHERE t.removed_at IS NULL
+  UNION ALL
+  SELECT 'investment',i.id,i.date::text,i.amount::text,i.account_id,a.name,i.name,i.name,false,
+    i.category_id,i.rule_id,i.rule_category_id,${NOT_COUNTED},false
+  FROM investment_transactions i JOIN accounts a ON a.id=i.account_id
+  WHERE i.removed_at IS NULL) x`;
+
+const toCandidate = (r: any): Candidate => ({
+  ...r,
+  base_category_id: Number(r.base_category_id),
+  user_category_id: r.user_category_id === null ? null : Number(r.user_category_id),
+  rule_id: r.rule_id === null ? null : Number(r.rule_id),
+  rule_category_id: r.rule_category_id === null ? null : Number(r.rule_category_id),
+});
 
 type Candidate = {
+  origin: 'bank' | 'investment';
+  manual: boolean;
   id: string;
   date: string;
   merchant: string;
@@ -79,14 +102,8 @@ type Candidate = {
  * wins now but would lose. `rules` is the whole list with this rule in its place. Nothing is written here.
  */
 async function plan(db: Db, rules: RuleDef[], target: number | null) {
-  const rows: Candidate[] = (await db.query(ROWS_SQL)).rows.map((r) => ({
-    ...r,
-    base_category_id: Number(r.base_category_id),
-    user_category_id: r.user_category_id === null ? null : Number(r.user_category_id),
-    rule_id: r.rule_id === null ? null : Number(r.rule_id),
-    rule_category_id: r.rule_category_id === null ? null : Number(r.rule_category_id),
-  }));
-  const skipped = { edited: 0, split: 0 };
+  const rows = (await db.query(ROWS_SQL)).rows.map(toCandidate);
+  const skipped = { edited: 0, split: 0, manual: 0 };
   const changes: {
     row: Candidate;
     next: { rule_id: number | null; category_id: number } | null;
@@ -95,9 +112,10 @@ async function plan(db: Db, rules: RuleDef[], target: number | null) {
   for (const row of rows) {
     const next = resolveRules(rules, row, row.base_category_id);
     const wins = next?.rule_id === target;
-    if (wins && row.split) skipped.split++;
+    if (wins && row.manual) skipped.manual++;
+    else if (wins && row.split) skipped.split++;
     else if (wins && row.user_category_id !== null) skipped.edited++;
-    if (row.split || row.user_category_id !== null) continue;
+    if (row.manual || row.split || row.user_category_id !== null) continue;
     if (wins) matching++;
     const was = row.rule_id === target && target !== null;
     if (!wins && !was) continue;
@@ -108,12 +126,16 @@ async function plan(db: Db, rules: RuleDef[], target: number | null) {
   return { changes, matching, skipped };
 }
 
-/** The category names for a preview: id → name and emoji. */
+/** The category names for a preview: id → name and emoji ("Not counted" for brokerage activity without one). */
 async function categoryNames() {
   const rows = (await pool.query('SELECT id,name,emoji FROM categories')).rows;
-  return new Map<number, { id: number; name: string; emoji: string | null }>(
-    rows.map((c: any) => [Number(c.id), { id: Number(c.id), name: c.name, emoji: c.emoji }]),
-  );
+  return new Map<number, { id: number; name: string; emoji: string | null }>([
+    [NOT_COUNTED, { id: NOT_COUNTED, name: 'Not counted', emoji: null }],
+    ...rows.map((c: any): [number, { id: number; name: string; emoji: string | null }] => [
+      Number(c.id),
+      { id: Number(c.id), name: c.name, emoji: c.emoji },
+    ]),
+  ]);
 }
 
 /** Rules in order, with the one being previewed put in its place (or last when it is new). */
@@ -160,16 +182,22 @@ export async function previewRule(body: unknown) {
 
 /** Write exactly what `plan` found. Returns how many transactions changed. */
 async function writeChanges(db: Db, changes: Awaited<ReturnType<typeof plan>>['changes']) {
-  if (!changes.length) return 0;
-  await db.query(
-    `UPDATE transactions t SET rule_id=x.rule_id,rule_category_id=x.cat,updated_at=now()
-     FROM unnest($1::text[],$2::bigint[],$3::bigint[]) AS x(id,rule_id,cat) WHERE t.id=x.id`,
-    [
-      changes.map((c) => c.row.id),
-      changes.map((c) => c.next?.rule_id ?? null),
-      changes.map((c) => c.next?.category_id ?? null),
-    ],
-  );
+  for (const [origin, table] of [
+    ['bank', 'transactions'],
+    ['investment', 'investment_transactions'],
+  ] as const) {
+    const these = changes.filter((c) => c.row.origin === origin);
+    if (!these.length) continue;
+    await db.query(
+      `UPDATE ${table} t SET rule_id=x.rule_id,rule_category_id=x.cat,updated_at=now()
+       FROM unnest($1::text[],$2::bigint[],$3::bigint[]) AS x(id,rule_id,cat) WHERE t.id=x.id`,
+      [
+        these.map((c) => c.row.id),
+        these.map((c) => c.next?.rule_id ?? null),
+        these.map((c) => c.next?.category_id ?? null),
+      ],
+    );
+  }
   return changes.length;
 }
 
@@ -238,17 +266,19 @@ export async function updateRule(id: number, body: unknown) {
   return { ...(await oneRule(id)), updated };
 }
 
-/** `revert` puts the transactions this rule categorised back to their automatic category. */
+/** `revert` puts the transactions this rule categorised back to their automatic category (or "Not counted"). */
 export async function deleteRule(id: number, revert: boolean) {
   return transaction(async (db) => {
-    const reverted = revert
-      ? (
-          await db.query(
-            'UPDATE transactions SET rule_id=NULL,rule_category_id=NULL,updated_at=now() WHERE rule_id=$1',
-            [id],
-          )
-        ).rowCount
-      : 0;
+    let reverted = 0;
+    if (revert)
+      for (const table of ['transactions', 'investment_transactions'])
+        reverted +=
+          (
+            await db.query(
+              `UPDATE ${table} SET rule_id=NULL,rule_category_id=NULL,updated_at=now() WHERE rule_id=$1`,
+              [id],
+            )
+          ).rowCount ?? 0;
     const r = await db.query('DELETE FROM rules WHERE id=$1', [id]);
     if (!r.rowCount) throw notFound;
     return { ok: true, reverted };
@@ -276,11 +306,15 @@ export async function reorderRules(body: unknown) {
 }
 
 /**
- * Give freshly synced transactions their rule result (a winning rule, or none). Skips transactions you categorised
- * yourself, split ones and ones you added. Runs inside the sync's own database transaction, behind a savepoint: a
- * problem with a rule is logged and never costs the sync its data.
+ * Give freshly synced rows their rule result (a winning rule, or none): bank and card transactions, or brokerage
+ * activity (`origin`). Skips rows you categorised yourself, split ones and ones you added. Runs inside the sync's own
+ * database transaction, behind a savepoint: a problem with a rule is logged and never costs the sync its data.
  */
-export async function applyRulesToSynced(db: Db, ids: string[]) {
+export async function applyRulesToSynced(
+  db: Db,
+  ids: string[],
+  origin: 'bank' | 'investment' = 'bank',
+) {
   if (!ids.length) return 0;
   await db.query('SAVEPOINT rules');
   try {
@@ -289,11 +323,11 @@ export async function applyRulesToSynced(db: Db, ids: string[]) {
       await db.query('RELEASE SAVEPOINT rules');
       return 0;
     }
-    const rows: Candidate[] = (
-      await db.query(`${ROWS_SQL} AND t.id=ANY($1::text[])`, [ids])
-    ).rows.map((r) => ({ ...r, base_category_id: Number(r.base_category_id) }));
+    const rows = (
+      await db.query(`${ROWS_SQL} WHERE x.origin=$1 AND x.id=ANY($2::text[])`, [origin, ids])
+    ).rows.map(toCandidate);
     const changes = rows
-      .filter((r) => r.user_category_id === null && !r.split)
+      .filter((r) => r.user_category_id === null && !r.split && !r.manual)
       .map((row) => ({ row, next: resolveRules(rules, row, row.base_category_id) }));
     await writeChanges(db, changes);
     await db.query('RELEASE SAVEPOINT rules');

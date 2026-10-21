@@ -10,6 +10,8 @@ import {
   describeConditions,
   draftOf,
   emptyDraft,
+  matchSummary,
+  ruleAccounts,
   moved,
   type Draft,
   type Rule,
@@ -225,7 +227,7 @@ function RuleEditor({
   const [saving, setSaving] = useState(false);
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const built = useMemo(() => bodyOf(draft), [draft]);
-  const accounts = data.accounts.filter((a) => a.kind === 'cash' || a.kind === 'credit');
+  const accounts = ruleAccounts(data.accounts);
 
   const key = 'body' in built ? JSON.stringify(built.body) : null;
   useEffect(() => {
@@ -391,8 +393,9 @@ function RuleEditor({
               />
             </div>
             <Fineprint>
-              A rule never changes a transaction you categorised yourself, a split one, one you
-              added or brokerage activity. Rules run top to bottom; a later match wins.
+              A rule never changes a transaction you categorised yourself, a split one or one you
+              added. Brokerage activity has no merchant: its name is matched as both merchant name
+              and original statement. Rules run top to bottom; a later match wins.
             </Fineprint>
           </div>
         </div>
@@ -431,14 +434,7 @@ function RuleEditor({
           Update existing transactions
         </label>
         <span className="text-muted-foreground">
-          {preview
-            ? `${preview.matching} matching transaction${preview.matching === 1 ? '' : 's'}` +
-              (preview.skipped.edited + preview.skipped.split
-                ? ` · ${preview.skipped.edited + preview.skipped.split} skipped (yours or split)`
-                : '')
-            : 'problem' in built
-              ? built.problem
-              : ''}
+          {preview ? matchSummary(preview) : 'problem' in built ? built.problem : ''}
         </span>
       </div>
       <div className="mt-4 flex justify-between">

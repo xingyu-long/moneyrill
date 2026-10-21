@@ -42,7 +42,8 @@ export async function listCategories() {
            LEFT JOIN categories sc ON sc.id=s.category_id
            LEFT JOIN categories un ON un.key='uncategorized'
            UNION ALL
-           SELECT category_id FROM investment_transactions WHERE removed_at IS NULL AND category_id IS NOT NULL) x
+           SELECT coalesce(category_id,rule_category_id) FROM investment_transactions
+           WHERE removed_at IS NULL AND coalesce(category_id,rule_category_id) IS NOT NULL) x
          GROUP BY 1) n ON n.id=c.id
        ORDER BY CASE g.type WHEN 'income' THEN 1 WHEN 'expense' THEN 2 ELSE 3 END,g.sort_order,lower(g.name),c.sort_order,lower(c.name)`,
     )

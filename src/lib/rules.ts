@@ -19,7 +19,8 @@ export type Rule = {
 };
 export type RulePreview = {
   matching: number;
-  skipped: { edited: number; split: number };
+  /** Matches a rule never changes: categorised by you, split, or added by you. */
+  skipped: { edited: number; split: number; manual: number };
   total: number;
   changes: {
     id: string;
@@ -191,3 +192,33 @@ export function moved<T>(items: T[], from: number, to: number): T[] {
   out.splice(to, 0, out.splice(from, 1)[0]);
   return out;
 }
+
+/**
+ * The editor's footer: how many transactions the rule would categorise, and why any match is left alone, so a zero
+ * is never a mystery ("0 matching transactions · 1 skipped because you added it").
+ */
+export function matchSummary(p: Pick<RulePreview, 'matching' | 'skipped'>) {
+  const head = `${p.matching} matching transaction${p.matching === 1 ? '' : 's'}`;
+  const reasons = [
+    {
+      n: p.skipped.edited,
+      one: 'you categorised it yourself',
+      many: 'you categorised them yourself',
+      short: 'you categorised',
+    },
+    { n: p.skipped.split, one: 'it is split', many: 'they are split', short: 'split' },
+    { n: p.skipped.manual, one: 'you added it', many: 'you added them', short: 'you added' },
+  ].filter((r) => r.n > 0);
+  if (!reasons.length) return head;
+  const total = reasons.reduce((n, r) => n + r.n, 0);
+  if (reasons.length === 1)
+    return `${head} · ${total} skipped because ${total === 1 ? reasons[0].one : reasons[0].many}`;
+  return `${head} · ${total} skipped (${reasons.map((r) => `${r.n} ${r.short}`).join(', ')})`;
+}
+
+/**
+ * The accounts a rule can be limited to: every account a transaction can be on. Bank and card accounts, investment
+ * accounts (brokerage activity, or what you add to a 401(k)), and any other account you keep by hand.
+ */
+export const ruleAccounts = <T extends { kind: string; source: string }>(accounts: T[]) =>
+  accounts.filter((a) => a.kind !== 'loan' || a.source === 'manual');
