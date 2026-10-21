@@ -138,6 +138,8 @@ const txn = (id: string, date: string, amount: string, name: string, extra = {})
   source: 'plaid',
   splits: [],
   split_balanced: true,
+  activity: 'bank',
+  account_kind: 'cash',
   ...extra,
 });
 export const transactionList = [
@@ -157,6 +159,25 @@ export const transactionList = [
     category_source: 'auto',
   }),
 ];
+
+// A dividend in a brokerage account: listed only when investment accounts are shown, not counted until categorised.
+export const dividendActivity = txn('i1', '2026-10-02', '-42.50', 'VTI DIVIDEND', {
+  account_id: 'broker',
+  account_name: 'Individual brokerage',
+  account_mask: '1842',
+  account_kind: 'investment',
+  category: null,
+  category_source: 'none',
+  activity: 'investment',
+  investment: {
+    type: 'cash',
+    subtype: 'dividend',
+    quantity: '0',
+    price: null,
+    fees: null,
+    security: { symbol: 'VTI', name: 'Total US stock market' },
+  },
+});
 
 // A posted transaction that can be edited (the pending one in transactionList cannot).
 export const plainTransaction = txn('t6', '2026-10-03', '64.10', 'ROASTER SHOP #1', {
@@ -377,7 +398,14 @@ export function stubApi(
     }
     if (url.startsWith('/api/transactions'))
       return reply({
-        transactions: structuredClone(all()),
+        // the Transactions page asks to leave investment accounts out unless they are shown
+        transactions: structuredClone(
+          url.includes('investments=hide')
+            ? all().filter(
+                (t: any) => t.activity !== 'investment' && t.account_kind !== 'investment',
+              )
+            : all(),
+        ),
         nextCursor: url.includes('cursor=') ? null : 'next',
         ...(url.includes('merchant=') ? { total: 4 } : {}),
       });

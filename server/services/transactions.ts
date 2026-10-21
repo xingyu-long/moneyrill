@@ -21,6 +21,12 @@ import {
 } from '../lib/transactions.ts';
 import { lineKindSql, MERCHANT_SQL } from '../lib/reports.ts';
 import { plaid } from './plaid-client.ts';
+import {
+  activityLocked,
+  listActivity,
+  oneActivity,
+  updateActivity,
+} from './investment-transactions.ts';
 import { applyRulesToSynced } from './rules.ts';
 
 const CARD_OR_BANK = ['cash', 'credit'];
@@ -200,6 +206,7 @@ export async function applyTransactionChanges(
 // --- Splits ---
 /** Replace all the parts of a transaction's split. */
 export async function setSplits(id: string, body: unknown) {
+  if (await oneActivity(id)) throw activityLocked();
   const b = ensure(splitsBody, body, 'A split needs 2 to 20 parts, each with an amount');
   const parent = await oneTransaction(id);
   assertEditable(parent);
@@ -227,6 +234,7 @@ export async function setSplits(id: string, body: unknown) {
 }
 
 export async function removeSplits(id: string) {
+  if (await oneActivity(id)) throw activityLocked();
   assertEditable(await oneTransaction(id));
   await pool.query('DELETE FROM transaction_splits WHERE transaction_id=$1', [id]);
   return oneTransaction(id);
@@ -234,7 +242,7 @@ export async function removeSplits(id: string) {
 
 // --- Reading and editing ---
 // Effective values: the user's date and category win over the provider's.
-const SELECT = `SELECT t.id,t.account_id,a.name AS account_name,a.mask AS account_mask,a.institution,a.included AS account_included,
+const SELECT = `SELECT t.id,t.account_id,a.name AS account_name,a.mask AS account_mask,a.institution,a.included AS account_included,a.kind AS account_kind,
   coalesce(t.user_date,t.date)::text AS date,t.date::text AS provider_date,t.user_date::text AS user_date,
   t.amount,t.currency,t.name,t.merchant_name,t.pending,t.notes,t.source,
   coalesce(uc.id,rc.id,ac.id,un.id) AS category_id,coalesce(uc.name,rc.name,ac.name,un.name) AS category_name,
@@ -255,6 +263,7 @@ function shape(r: any) {
   const { category_id, category_name, category_emoji, category_group, splits, ...rest } = r;
   return {
     ...rest,
+    activity: 'bank' as const,
     splits: (splits as any[]).map((p) => ({
       id: Number(p.id),
       amount: p.amount,
@@ -297,6 +306,7 @@ export async function listTransactions(query: unknown) {
   };
   if (q.from) inRange('>=', q.from);
   if (q.to) inRange('<=', q.to);
+  if (q.investments === 'hide') where.push(`a.kind <> 'investment'`);
   if (q.account) add('t.account_id = ?', q.account);
   if (q.accounts?.length) add('t.account_id = ANY(?::text[])', q.accounts);
   if (q.merchant) add(`lower(${MERCHANT_SQL}) = lower(?)`, q.merchant);
@@ -330,19 +340,42 @@ export async function listTransactions(query: unknown) {
   }
   // The count a merchant's "View N transactions" link shows ignores paging.
   const unpaged = { where: [...where], params: [...params] };
+  let cursor: { date: string; id: string } | undefined;
   if (q.cursor) {
     const [date, id] = Buffer.from(q.cursor, 'base64url').toString().split('|');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !id) throw new Error('Invalid cursor');
+    cursor = { date, id };
     params.push(date, id);
-    where.push(`(${EFFECTIVE_DATE}, t.id) < ($${params.length - 1}::date, $${params.length})`);
+    where.push(
+      `(${EFFECTIVE_DATE}, t.id COLLATE "C") < ($${params.length - 1}::date, $${params.length} COLLATE "C")`,
+    );
   }
   params.push(q.limit + 1);
-  const rows = (
+  const bank = (
     await pool.query(
-      `${SELECT} WHERE ${where.join(' AND ')} ORDER BY ${EFFECTIVE_DATE} DESC, t.id DESC LIMIT $${params.length}`,
+      `${SELECT} WHERE ${where.join(' AND ')} ORDER BY ${EFFECTIVE_DATE} DESC, t.id COLLATE "C" DESC LIMIT $${params.length}`,
       params,
     )
-  ).rows;
+  ).rows.map(shape);
+  // Brokerage activity sits in its own table; it has no merchant, and the Transactions page hides it by default.
+  const activity =
+    q.investments === 'hide' || q.merchant
+      ? []
+      : await listActivity({
+          from: q.from,
+          to: q.to,
+          account: q.account,
+          accounts: q.accounts,
+          categories: categoryIds,
+          type: q.type,
+          q: q.q,
+          cursor,
+          limit: q.limit + 1,
+        });
+  // Both halves are ordered by date, then id in byte order (COLLATE "C"), which is how strings compare here too.
+  const rows = [...bank, ...activity].sort((x, y) =>
+    x.date !== y.date ? (x.date < y.date ? 1 : -1) : x.id < y.id ? 1 : x.id > y.id ? -1 : 0,
+  );
   const more = rows.length > q.limit;
   const page = rows.slice(0, q.limit);
   const last = page[page.length - 1];
@@ -362,7 +395,7 @@ export async function listTransactions(query: unknown) {
       )
     : undefined;
   return {
-    transactions: page.map(shape),
+    transactions: page,
     nextCursor: more && last ? Buffer.from(`${last.date}|${last.id}`).toString('base64url') : null,
     ...(total === undefined ? {} : { total }),
   };
@@ -386,6 +419,7 @@ const MANUAL_ONLY =
   'Only a transaction you added yourself can have its name, amount or account changed';
 
 export async function updateTransaction(id: string, body: unknown) {
+  if (await oneActivity(id)) return updateActivity(id, body);
   const b = ensure(
     updateTransactionBody,
     body,
@@ -476,6 +510,7 @@ export async function createTransaction(body: unknown) {
 
 /** Only what you added yourself can be deleted; bank and imported transactions are never removed. */
 export async function deleteTransaction(id: string) {
+  if (await oneActivity(id)) throw activityLocked();
   const current = await oneTransaction(id);
   if (current.source !== 'manual')
     throw new Error('Only a transaction you added yourself can be deleted');

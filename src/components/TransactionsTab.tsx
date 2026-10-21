@@ -13,6 +13,7 @@ import { DatePicker } from './DatePicker.tsx';
 import { Button } from './ui/button.tsx';
 import { Card } from './ui/card.tsx';
 import { Input } from './ui/input.tsx';
+import { Switch } from './ui/switch.tsx';
 import { AddTransactionModal } from './AddTransactionModal.tsx';
 import { DETAIL_BODY, TransactionDetail, TransactionDrawer } from './TransactionDrawer.tsx';
 import { TransactionGroups } from './TransactionGroups.tsx';
@@ -114,6 +115,9 @@ export function TransactionsTab() {
     categories: number[];
     when: DateSpec;
   }>({ q: '', accounts: [], categories: [], when: ALL_TIME });
+  // Off on every visit: only bank, card and loan rows. On: investment accounts and brokerage activity too.
+  // It only changes what is listed; what counts in Reports is the same either way.
+  const [investments, setInvestments] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // on a phone the filters fold away
   const { categories } = useCategories();
   const { when, ...rest } = filters;
@@ -123,6 +127,7 @@ export function TransactionsTab() {
       ...rest,
       account: '',
       category: '',
+      ...(investments ? {} : { investments: 'hide' as const }),
       ...(when.mode === 'all' ? {} : resolveSpec(when, todayIso())),
     },
     `${data.runs[0]?.id}:${added}`,
@@ -138,11 +143,22 @@ export function TransactionsTab() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [docked]);
-  // Bank and card accounts, plus any account you keep by hand (a 401(k), equity awards).
-  const accounts = base.filter(
-    (a) => a.kind === 'cash' || a.kind === 'credit' || a.source === 'manual',
+  // Bank and card accounts, plus any account you keep by hand (a 401(k), equity awards); investment accounts only
+  // while they are shown.
+  const accounts = base.filter((a) =>
+    a.kind === 'investment'
+      ? investments
+      : a.kind === 'cash' || a.kind === 'credit' || a.source === 'manual',
   );
-  const groups = groupByDate(list.rows);
+  const showInvestments = (on: boolean) => {
+    setInvestments(on);
+    // A hidden account cannot stay picked.
+    if (!on) {
+      const shown = new Set(base.filter((a) => a.kind !== 'investment').map((a) => a.id));
+      setFilters((f) => ({ ...f, accounts: f.accounts.filter((id) => shown.has(id)) }));
+    }
+  };
+  const groups = groupByDate(list.rows, { skipInvestments: true });
   const picked =
     (filters.when.mode === 'all' ? 0 : 1) + filters.accounts.length + filters.categories.length;
   const filtered = !!(filters.q || picked);
@@ -229,6 +245,10 @@ export function TransactionsTab() {
               >
                 All accounts
               </Choice>
+              <label className="my-1 flex items-center justify-between gap-2 px-3.5 text-[13px]">
+                Show investment accounts
+                <Switch checked={investments} onCheckedChange={showInvestments} />
+              </label>
               {banks.map(([bank, list]) => (
                 <div key={bank} role="group" aria-label={bank} className="mt-2 grid gap-0.5">
                   <div className="px-3.5 text-[11px] text-muted-foreground">{bank}</div>
@@ -354,7 +374,11 @@ export function TransactionsTab() {
           accounts={base}
           categories={categories}
           onClose={() => setAdding(false)}
-          onAdded={() => setAdded((n) => n + 1)}
+          onAdded={(t) => {
+            // Something added to an investment account would otherwise vanish from the list.
+            if (t.account_kind === 'investment') setInvestments(true);
+            setAdded((n) => n + 1);
+          }}
           onError={setError}
           onNewAccount={() => setManual(true)}
         />

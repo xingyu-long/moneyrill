@@ -8,7 +8,7 @@ const SETTING = 'cash_flows_from';
 
 /**
  * The money the household added to (positive) or took out of (negative) its investments, as a net figure per day,
- * worked out from the same lines the Reports tab uses: income minus spending on the included accounts. Transfers
+ * worked out from the same lines the Reports tab uses: income minus spending on the included accounts. Brokerage activity the owner categorised counts in Reports but not here: a dividend paid inside a brokerage is growth, not money added. Transfers
  * (card payments, moves between your own accounts, to or from a brokerage) are left out, pending rows are not
  * counted, and a refund reduces spending. Income and spending both carry the provider sign (positive = money
  * out), so the net flow is the negated sum. Nothing is stored: an edit to a transaction changes the next answer.
@@ -19,7 +19,7 @@ export async function cashFlowDays() {
       `WITH lines AS (${LINES_SQL})
        SELECT l.date::text AS date, (-sum(l.amount))::text AS amount
        FROM lines l JOIN accounts a ON a.id=l.account_id AND a.included
-       WHERE ${lineKindSql('l.category_id', 'l.amount')} IN ('income','expense')
+       WHERE l.origin='bank' AND ${lineKindSql('l.category_id', 'l.amount')} IN ('income','expense')
        GROUP BY l.date ORDER BY l.date`,
     )
   ).rows as CashFlowDay[];

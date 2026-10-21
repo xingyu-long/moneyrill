@@ -199,9 +199,20 @@ export const transactionQuery = z.object({
   /** Only transactions with a part that counts as income or as spending (Uncategorized by direction). */
   type: z.enum(['income', 'expense']).optional(),
   q: z.string().max(200).optional(),
+  /** `hide`: leave out every row of an investment account and all brokerage activity (the Transactions page default). */
+  investments: z.literal('hide').optional(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
   cursor: z.string().max(300).optional(),
 });
+
+/** PATCH /api/transactions/:id on brokerage activity: only the category and notes can change. */
+export const updateInvestmentBody = z
+  .object({
+    category_id: z.union([z.null(), z.number().int().positive()]).optional(),
+    notes: z.string().max(2000).optional(),
+  })
+  .strict()
+  .refine((b) => Object.values(b).some((v) => v !== undefined));
 
 /** GET /api/reports/*: the same filters everywhere; dates are calendar days chosen by the browser. */
 export const reportQuery = z

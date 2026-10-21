@@ -4,13 +4,13 @@ import { reportUrl } from '../lib/routes.ts';
 import { ALL_TIME } from '../lib/reportDates.ts';
 import { linkClick } from '../state/router.ts';
 import { api } from '../api.ts';
-import { groupCategories, longDate, merchantOf } from '../lib/transactions.ts';
+import { activityLabel, groupCategories, longDate, merchantOf } from '../lib/transactions.ts';
 import type { Category, Transaction } from '../types.ts';
 import { Amount } from './TransactionGroups.tsx';
 import { SplitEditor } from './SplitEditor.tsx';
 import { DatePicker } from './DatePicker.tsx';
 import { addDays, todayIso } from '../lib/calendar.ts';
-import { dateLabel } from '../lib/format.ts';
+import { dateLabel, isPrivate } from '../lib/format.ts';
 import { useApp } from '../state/AppContext.tsx';
 import { ManualFields } from './ManualFields.tsx';
 import { Badge } from './ui/badge.tsx';
@@ -51,16 +51,19 @@ export function TransactionDetail({
   useEffect(() => setSplitting(false), [txn.id]);
   // How many transactions this merchant has (all time), for the "View N transactions" link.
   const merchant = merchantOf(txn);
+  // Brokerage activity has no merchant, so it has no merchant history either.
+  const brokerage = txn.activity === 'investment';
   useEffect(() => {
     let current = true;
     setCount(null);
+    if (brokerage) return;
     api(`/transactions?limit=1&merchant=${encodeURIComponent(merchant)}`)
       .then((r) => current && setCount(typeof r.total === 'number' ? r.total : null))
       .catch(() => current && setCount(null));
     return () => {
       current = false;
     };
-  }, [merchant]);
+  }, [merchant, brokerage]);
   // Money in opens the merchant as income, money out as spending; the page has a switch for the other.
   const history = reportUrl({
     view: 'merchant',
@@ -82,7 +85,7 @@ export function TransactionDetail({
     }
   }
   const autoName = txn.category_source === 'user' ? null : txn.category?.name;
-  const autoLabel = txn.category_source === 'rule' ? 'Rule' : 'Auto';
+  const autoLabel = brokerage ? 'Not counted' : txn.category_source === 'rule' ? 'Rule' : 'Auto';
   // A pending transaction is replaced when it posts, so nothing on it can be changed until then.
   const locked = txn.pending;
   const manual = txn.source === 'manual';
@@ -113,6 +116,30 @@ export function TransactionDetail({
       </div>
       <DetailList
         rows={[
+          ...(brokerage && txn.investment
+            ? ([
+                ['Activity', activityLabel(txn)],
+                ...(txn.investment.security
+                  ? [
+                      [
+                        'Security',
+                        [txn.investment.security.symbol, txn.investment.security.name]
+                          .filter(Boolean)
+                          .join(' · '),
+                      ],
+                    ]
+                  : []),
+                ...(Number(txn.investment.quantity)
+                  ? [['Shares', isPrivate() ? '•••' : txn.investment.quantity]]
+                  : []),
+                ...(txn.investment.price !== null && Number(txn.investment.price)
+                  ? [['Price', <Amount key="p" value={txn.investment.price} />]]
+                  : []),
+                ...(txn.investment.fees !== null && Number(txn.investment.fees)
+                  ? [['Fees', <Amount key="f" value={txn.investment.fees} />]]
+                  : []),
+              ] as [string, React.ReactNode][])
+            : []),
           manual
             ? ['Source', 'Added by you']
             : [
@@ -138,7 +165,7 @@ export function TransactionDetail({
           This transaction is pending, so it can't be edited until it posts.
         </Callout>
       )}
-      {locked ? (
+      {locked || brokerage ? (
         <div className="grid gap-2">
           <span className="text-[11px] text-muted-foreground">Date</span>
           <ReadonlyValue>{longDate(txn.date)}</ReadonlyValue>
@@ -205,7 +232,7 @@ export function TransactionDetail({
             <label htmlFor="txn-category" className="text-[11px] text-muted-foreground">
               Category
             </label>
-            {!splitting && Number(txn.amount) !== 0 && (
+            {!splitting && !brokerage && Number(txn.amount) !== 0 && (
               <button type="button" className={linkButton} onClick={() => setSplitting(true)}>
                 Split
               </button>
@@ -236,6 +263,11 @@ export function TransactionDetail({
             ))}
           </Select>
         </div>
+      )}
+      {brokerage && (
+        <Fineprint>
+          Activity in a brokerage counts in Reports only once you give it a category.
+        </Fineprint>
       )}
       {splitting && !locked && (
         <SplitEditor

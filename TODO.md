@@ -15,7 +15,8 @@ Open items, roughly by priority. What the app does today is specified in `docs/s
 - [ ] Splits: a per-part merchant name, weighted shares or percentages (even shares only for now), and carrying a split across a pending → posted amount change.
 
 - [x] **Phase 1b: one-off Monarch CSV import** for bank and card accounts (Settings → Import from Monarch).
-- [ ] **Phase 2: brokerage activity** via `/investments/transactions/get` (confirmed to work for one brokerage; others not tested): buys, sells, dividends, transfers, journal pairing, own display and sign handling.
+- [x] **Phase 2: brokerage activity** via `/investments/transactions/get`: downloaded on every sync, listed with the **Show investment accounts** switch, counted in Reports only once you categorise it. See `docs/specs/06-transactions-and-categories.md`.
+- [ ] Brokerage activity, next: pair journals and zero-amount share moves between accounts; suggested categories (dividends, interest) and rules on it; activity per security in the security drawer; use deposits and withdrawals as the exact cash-flow source for the portfolio return.
 - [x] Rules (Settings → Rules): conditions on merchant, statement, amount, category and account, set the category, preview and bulk update, applied on every sync. See `docs/specs/06-transactions-and-categories.md`.
 - [ ] Rules, next: rename merchant, "Create a rule" from the transaction drawer, suggestions from repeated manual edits, optionally replacing your own choices.
 - [ ] Tags, owner, review status, attachments, bulk edit, CSV export of transactions, import of `categories`/`transactions` from the JSON archive.
@@ -25,7 +26,7 @@ Open items, roughly by priority. What the app does today is specified in `docs/s
 
 - [x] Reports tab: Cash flow, Spending, Income, with Date and Filters (categories, accounts). See `docs/specs/07-reports.md`.
 - [ ] **Phase 2:** saved reports (Save / Reports menu; decide browser-only vs a `saved_reports` table), By group and By merchant breakdowns, stacked bars by category, Merchants, Amount and Tags filters, PNG download, "Edit multiple" on the report list, Weekly interval.
-- [ ] Brokerage activity (RSU, ESPP, dividends) only appears in reports when it arrives as a bank or card transaction; it needs the Phase 2 investments-transactions work.
+- [ ] Brokerage activity counts in Reports only when you categorise it row by row (no automatic categories yet).
 
 ## Data and accuracy
 

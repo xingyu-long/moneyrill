@@ -42,8 +42,10 @@ function TransactionsSentence() {
       .then((r) => {
         if (!current) return;
         // an excluded account never counts, here as in the reports
+        // brokerage activity is not a transaction here: the count is the same as before it existed
         const rows = r.transactions.filter(
-          (t: { account_included: boolean }) => t.account_included,
+          (t: { account_included: boolean; activity: string }) =>
+            t.account_included && t.activity !== 'investment',
         );
         setCounted({
           count: rows.length,

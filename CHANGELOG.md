@@ -6,6 +6,13 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ### Added
 
+- **Brokerage activity**: buys, sells, dividends, fees, deposits and share transfers are downloaded on every sync for connections with investments access (two years the first time, then the last 30 days) and shown on the Transactions page, labelled by what happened ("Buy · 10 VOO @ $500.00"). They count in Reports only once you give a row a category (a dividend → Dividends & Capital Gains), and never in the portfolio return's cash flows. Migration `015_investment_transactions.sql` is additive.
+- **Show investment accounts** switch on the Transactions page, off by default. It only changes what is listed, never what counts.
+
+### Changed
+
+- **Transactions page default list**: before, transactions you added to a manual investment account (a 401(k), equity awards) were listed by default → now they are listed with **Show investment accounts** on. They count in Reports exactly as before. The day totals and the page sentence no longer include them.
+
 - **Rules** (Settings → Rules): "if a transaction looks like this, give it that category". Conditions on merchant name, original statement, amount, category and account; they run top to bottom (drag to reorder) and the last match wins. The editor previews exactly which transactions would change, and **Update existing transactions** applies that preview in bulk. Rules also run on every sync. Your own category choice always wins over a rule, and a rule never touches split transactions or ones you added. Migration `014_rules.sql` is additive.
 
 ### Fixed

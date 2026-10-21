@@ -13,6 +13,10 @@ Every report is built from **report lines** (`LINES_SQL`):
 - an **unsplit** transaction is one line with its effective date (`coalesce(user_date, date)`) and effective category;
 - a **split** transaction is its **parts**, each on its own date (`coalesce(part date, effective date)`) and in its own
   category (null = Uncategorized), never the parent as well;
+- **brokerage activity** is a line only once the owner gave it a category (its date, amount and that category;
+  `origin = 'investment'`, all other lines `bank`); uncategorised it counts nowhere
+  ([06](06-transactions-and-categories.md#brokerage-activity)). The Transactions page's **Show investment accounts**
+  switch only changes that page's list, never these lines;
 - **not limited to included accounts:** the lines of an account switched off "Include in net worth" still count in
   Reports (the account filter is the only account scope), although the page sentences for Transactions and the investment
   cash flows leave such accounts out. This is how the app behaves today and looks like an oversight (it contradicts the

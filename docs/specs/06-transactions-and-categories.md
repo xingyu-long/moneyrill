@@ -156,7 +156,7 @@ edit, then a rule, then the automatic category, then Uncategorized**. `category_
 
 ## Reading and editing
 
-`GET /api/transactions?from&to&account&accounts&category&categories&merchant&type&q&limit&cursor` → `{transactions,
+`GET /api/transactions?from&to&account&accounts&category&categories&merchant&type&q&investments&limit&cursor` → `{transactions,
 nextCursor, total?}`, newest effective date first (ties by id), `limit` 1-500 (default 100), `cursor` an opaque
 base64url of the last `date|id`.
 
@@ -167,7 +167,8 @@ base64url of the last `date|id`.
   that counts as income or spending in Reports (by the category's group type; Uncategorized by direction); pending rows
   are never counted there, so they are not listed. `q` searches name, merchant, notes and part notes (case-insensitive,
   `%` and `_` escaped).
-- Each row: id, account (name, mask, institution, included), effective `date`, `provider_date`, `user_date`, amount,
+- `investments=hide` and brokerage rows: see [Brokerage activity](#brokerage-activity).
+- Each row: id, account (name, mask, institution, included, kind), `activity`, effective `date`, `provider_date`, `user_date`, amount,
   currency, name, merchant, pending, notes, source, `category` (`{id, name, emoji, group}`) with `category_source`
   (`user`, `auto`, `none`), `splits` (id, amount, notes, date or null, category) and `split_balanced`.
 
@@ -251,15 +252,47 @@ them (paychecks, rent, groceries, card payments, transfers, refunds, an uncatego
 across two months), once, so Reports has a trend; Sandbox Items also receive Plaid's test transactions. Production is
 never seeded.
 
-## Not built yet: brokerage activity
+## Brokerage activity
 
-Plaid's bank endpoint returns nothing for brokerage accounts; `/investments/transactions/get` works (tested with one
-brokerage: about a month, across several accounts). Rows carry type and subtype (buy, sell, dividend, transfer,
-deposit), quantity, price, fees and the security. Quirks to design for: the sign is positive for money out (a buy is
-`+`, a dividend, sale or deposit is `−`); share moves between accounts (lapses, transfers) have `amount = 0` and look
-like duplicates; cash rows use the security `CUR:USD`; there is no Plaid category, no merchant and no sync cursor
-(date range and offset paging only); "Journal to/from …" rows appear on both accounts and can be paired. It needs its
-own type-aware display and sign handling, so it is a separate feature.
+`015_investment_transactions`: `investment_transactions(id '<connection id>:<Plaid investment_transaction_id>',
+account_id → accounts cascade, provider_id, security_id → securities (set null), date, name, type, subtype, amount
+(Plaid sign: positive = cash out, so a buy is `+`, a sale, dividend or deposit `−`), quantity, price, fees, currency,
+cancel_transaction_id, category_id → categories (set null), notes, provenance, removed_at)` and
+`connections.investments_backfilled_at`. A separate table on purpose: the shape differs (security, shares, price, fees,
+no merchant, no automatic category), and no money query may count it by accident.
+
+- **Download** (`syncInvestmentTransactions`, after `syncTransactions` in the sync): only for connections with the
+  `investments` product and a tracked `investment` account. Plaid has no cursor here, so it reads a date window, two
+  years the first time, the last 30 days afterwards, 500 per page (`total_investment_transactions`). Pure planning in
+  `server/lib/investment-transactions.ts` (`planInvestmentChanges`): ids and security ids prefixed with the connection,
+  currency fallbacks, rows of untracked accounts skipped and counted, and saved rows inside a **completely read** window
+  that Plaid no longer returns are removed (they come back if sent again). Securities are saved with the holdings' asset
+  classes. Saved in one database transaction; provider columns only, **never the owner's category or notes**. Quiet
+  codes as for bank transactions; another failure adds `INVESTMENTS_<code>` and never touches balances, holdings or
+  bank transactions. Zero-amount share moves and journals between accounts are stored as sent (not paired yet).
+- **Counting.** Brokerage activity has no automatic category and **counts nowhere until the owner gives it one**; that
+  keeps a bank → brokerage deposit, a buy or a share move from counting twice. Once categorised (a dividend → Dividends &
+  Capital Gains) it is a report line like any transaction of that category type ([07](07-reports.md)), and it is in the
+  category counts. It is **never** an investment cash flow ([05](05-investments.md)): a dividend paid inside a
+  brokerage is growth, not money added. Rules never read or change it.
+- **Listing.** `GET /api/transactions` returns brokerage rows next to bank and card rows by default (so a Reports list
+  matches its total); `investments=hide` (the only accepted value) leaves out every row of an `investment` account,
+  manual ones included, and all brokerage activity. Brokerage rows obey `from`/`to`, `account(s)`, `q` (name, notes,
+  security symbol and name), `category`/`categories` and `type` (by their owner-set category only); never `merchant`.
+  Both halves sort by date, then id in byte order (`COLLATE "C"`), and share the cursor. Every row carries
+  `account_kind` and `activity` (`bank` | `investment`); brokerage rows add `investment: {type, subtype, quantity,
+price, fees, security: {symbol, name} | null}`, `category_source` `user` or `none`, no splits.
+- **Editing.** `PATCH /api/transactions/:id` on a brokerage row accepts only `category_id` (or null: "Not counted") and
+  `notes`; anything else, `DELETE` and splits answer 409.
+- **Transactions page:** a **Show investment accounts** switch under Accounts, **off on every visit**: off, the list
+  asks with `investments=hide` and the Accounts filter leaves investment accounts out (a picked one is dropped); on,
+  investment accounts and brokerage activity are listed. **It only changes what is listed, never what counts.** Before
+  this switch, transactions you added to a manual investment account (a 401(k), equity awards) showed in the default
+  list; now they show with the switch on, and they count in Reports exactly as before. Adding one with the switch off
+  turns it on. Brokerage rows show what happened instead of a category until they have one ("Buy · 10 VOO @ $500.00",
+  "Dividend", "Shares in"), and a share move with no money shows its shares. Day totals and the page sentence leave out
+  brokerage activity and investment-account rows, so the switch never changes them. The detail of a brokerage row shows
+  activity, security, shares, price and fees, a read-only date, the category ("Not counted" first) and notes; no split.
 
 ## Acceptance checks
 
@@ -288,6 +321,13 @@ own type-aware display and sign handling, so it is a separate feature.
   flip, last-four matching with skips and reasons, the before-window / inside-window rules, one-to-one matching within 3
   days, edits never overwritten, unknown categories created in the Imported group, a repeat import adds nothing, the
   dry run writes nothing, commit refused during a sync.
+- Brokerage activity (`tests/investment-transactions.test.ts`, integration, `tests/ui/transactions.test.tsx`,
+  `tests/ui/headings.test.tsx`): ids, sign, currency and name fallbacks, untracked accounts skipped, removals only
+  inside a completely read window, labels; uncategorised activity changes no report, cash flow or category count;
+  categorised, a dividend adds exactly its amount to Reports income and nothing to the cash flows; a manual transaction
+  on an investment account counts whether or not the list hides it; `investments=hide` hides both, the default lists
+  both; paging across both kinds returns every row once; only category and notes can be edited; a sync keeps them; a
+  deleted category leaves the row not counted; the switch is off by default and leaves day totals and the sentence alone.
 - UI (`tests/ui/transactions.test.tsx`, `tests/ui/monarch.test.tsx`, `tests/ui/private.test.tsx`): day cards and totals,
   filters (and the phone fold), the detail in its three placements, editing, split editor, add transaction, Manual tag,
   Private mode masking and disabling.

@@ -4,7 +4,13 @@ import userEvent from '@testing-library/user-event';
 import App from '../../src/App.tsx';
 import { setPrivateMode } from '../../src/lib/format.ts';
 import { dayLabel, todayIso } from '../../src/lib/calendar.ts';
-import { plainTransaction, refund, splitTransaction, stubApi } from './fixture.ts';
+import {
+  dividendActivity,
+  plainTransaction,
+  refund,
+  splitTransaction,
+  stubApi,
+} from './fixture.ts';
 
 let calls: { url: string; method: string; body: any }[] = [];
 beforeEach(() => {
@@ -876,5 +882,39 @@ describe('Settings categories', () => {
     await waitFor(() =>
       expect(body('PATCH', '/api/category-groups/2')).toEqual({ name: 'Eating out' }),
     );
+  });
+});
+
+describe('Investment accounts on the Transactions page', () => {
+  const lists = () =>
+    calls.filter((c) => c.method === 'GET' && c.url.startsWith('/api/transactions?'));
+  it('are hidden by default and shown with the switch, labelled by what happened', async () => {
+    vi.stubGlobal('fetch', vi.fn(stubApi(calls, [dividendActivity])));
+    const user = await openTab(/Transactions/);
+    await screen.findByText('Whole Market');
+    const toggle = screen.getByRole('switch', { name: 'Show investment accounts' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByText('VTI DIVIDEND')).toBeNull();
+    const tabLists = lists().filter((c) => !c.url.includes('limit=500'));
+    expect(tabLists.length).toBeGreaterThan(0);
+    expect(tabLists.every((c) => c.url.includes('investments=hide'))).toBe(true);
+    const dayTotal = screen.getByText('+$1,350.00');
+    expect(dayTotal).toBeInTheDocument();
+
+    await user.click(toggle);
+    const row = (await screen.findByText('VTI DIVIDEND')).closest('button')!;
+    expect(within(row).getByText(/Dividend/)).toBeInTheDocument();
+    expect(lists().at(-1)!.url).not.toContain('investments=hide');
+    // the day's total is the same with investment accounts shown
+    expect(screen.getByText('+$1,350.00')).toBeInTheDocument();
+
+    await user.click(row);
+    const select = await screen.findByLabelText('Category');
+    expect(within(select).getByRole('option', { name: 'Not counted' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/counts in Reports only once you give it a category/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Split' })).toBeNull();
+    expect(screen.queryByText('View 4 transactions')).toBeNull();
   });
 });

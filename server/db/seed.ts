@@ -681,3 +681,169 @@ export function demoTransactions(today: Date) {
   );
   return out;
 }
+
+/** Fake, deterministic brokerage activity on the demo investment accounts (staging only), once. */
+export async function seedInvestmentActivity() {
+  if (config.production) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(931875)');
+    const done = await client.query(
+      "SELECT 1 FROM settings WHERE key='seeded_investment_activity'",
+    );
+    const demo = await client.query("SELECT 1 FROM accounts WHERE id='demo-broker'");
+    if (done.rowCount || !demo.rowCount) {
+      await client.query('COMMIT');
+      return;
+    }
+    await client.query(
+      `INSERT INTO investment_transactions(id,account_id,provider_id,security_id,date,name,type,subtype,amount,quantity,price,fees,provenance)
+       SELECT id,account_id,id,security_id,date,name,type,subtype,amount,quantity,price,fees,'simulated'
+       FROM jsonb_to_recordset($1::jsonb) AS x(id text,account_id text,security_id text,date date,name text,type text,subtype text,amount numeric,quantity numeric,price numeric,fees numeric)`,
+      [JSON.stringify(demoActivity(new Date()))],
+    );
+    await client.query(`INSERT INTO settings VALUES('seeded_investment_activity','true')`);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * About three months of made-up brokerage activity: monthly deposits and buys, quarterly dividends, a sale, a fee and
+ * one share transfer between the two accounts (amount 0). Plaid's sign: positive = cash out of the account.
+ */
+export function demoActivity(today: Date) {
+  const day = (back: number) =>
+    new Date(today.getTime() - back * 86400000).toISOString().slice(0, 10);
+  const rows: {
+    id: string;
+    account_id: string;
+    security_id: string | null;
+    date: string;
+    name: string;
+    type: string;
+    subtype: string;
+    amount: number;
+    quantity: number;
+    price: number | null;
+    fees: number | null;
+  }[] = [];
+  const add = (r: Omit<(typeof rows)[number], 'id'>) =>
+    rows.push({ id: `demo-activity:${rows.length + 1}`, ...r });
+  for (const back of [80, 50, 20]) {
+    add({
+      account_id: 'demo-broker',
+      security_id: null,
+      date: day(back),
+      name: 'ACH DEPOSIT',
+      type: 'cash',
+      subtype: 'deposit',
+      amount: -1500,
+      quantity: 0,
+      price: null,
+      fees: null,
+    });
+    add({
+      account_id: 'demo-broker',
+      security_id: 'vti',
+      date: day(back - 1),
+      name: 'BUY VTI',
+      type: 'buy',
+      subtype: 'buy',
+      amount: 1432.1,
+      quantity: 5,
+      price: 286.42,
+      fees: 0,
+    });
+    add({
+      account_id: 'demo-ira',
+      security_id: 'bnd',
+      date: day(back - 2),
+      name: 'BUY BND',
+      type: 'buy',
+      subtype: 'buy',
+      amount: 365.7,
+      quantity: 5,
+      price: 73.14,
+      fees: 0,
+    });
+  }
+  add({
+    account_id: 'demo-broker',
+    security_id: 'vti',
+    date: day(35),
+    name: 'VTI DIVIDEND',
+    type: 'cash',
+    subtype: 'dividend',
+    amount: -61.2,
+    quantity: 0,
+    price: null,
+    fees: null,
+  });
+  add({
+    account_id: 'demo-ira',
+    security_id: 'bnd',
+    date: day(33),
+    name: 'BND DIVIDEND',
+    type: 'cash',
+    subtype: 'dividend',
+    amount: -18.45,
+    quantity: 0,
+    price: null,
+    fees: null,
+  });
+  add({
+    account_id: 'demo-broker',
+    security_id: 'msft',
+    date: day(27),
+    name: 'SELL MSFT',
+    type: 'sell',
+    subtype: 'sell',
+    amount: -864.3,
+    quantity: -2,
+    price: 432.15,
+    fees: 0,
+  });
+  add({
+    account_id: 'demo-broker',
+    security_id: null,
+    date: day(15),
+    name: 'ADVISORY FEE',
+    type: 'fee',
+    subtype: 'account fee',
+    amount: 4.5,
+    quantity: 0,
+    price: null,
+    fees: 4.5,
+  });
+  add({
+    account_id: 'demo-broker',
+    security_id: 'aapl',
+    date: day(9),
+    name: 'JOURNAL TO ROTH IRA',
+    type: 'transfer',
+    subtype: 'transfer',
+    amount: 0,
+    quantity: -3,
+    price: null,
+    fees: null,
+  });
+  add({
+    account_id: 'demo-ira',
+    security_id: 'aapl',
+    date: day(9),
+    name: 'JOURNAL FROM INDIVIDUAL',
+    type: 'transfer',
+    subtype: 'transfer',
+    amount: 0,
+    quantity: 3,
+    price: null,
+    fees: null,
+  });
+  return rows;
+}

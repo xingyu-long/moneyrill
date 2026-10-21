@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from '../../src/App.tsx';
 import { MASK, setPrivateMode } from '../../src/lib/format.ts';
-import { overview, stubApi } from './fixture.ts';
+import { dividendActivity, overview, stubApi } from './fixture.ts';
 
 beforeEach(() => {
   localStorage.clear();
@@ -75,6 +75,14 @@ describe('The sentence under the title', () => {
     expect(sentence().textContent).toMatch(
       /^\d+\+ this month, \$2,651 out and \$4,200 in\. One is still pending\.$/,
     );
+  });
+
+  it('Transactions: brokerage activity is never counted in the sentence', async () => {
+    vi.stubGlobal('fetch', vi.fn(stubApi([], [dividendActivity])));
+    await open('/transactions');
+    await waitFor(() => expect(sentence().textContent).not.toBe(''));
+    // three bank and card rows and a dividend come back: the sentence counts the three
+    expect(sentence().textContent).toMatch(/^3\+ this month/);
   });
 
   it('Reports: the chosen range, what was earned and spent, and the share kept', async () => {

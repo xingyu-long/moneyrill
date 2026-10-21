@@ -10,6 +10,8 @@ import { planTransactionChanges } from '../server/lib/transactions.ts';
 import { excludeUnreturnedAccounts } from '../server/services/sync.ts';
 import { applyHoldingPrices, refreshSecurityPrices } from '../server/services/prices.ts';
 import { applyTransactionChanges, remapAutoCategories } from '../server/services/transactions.ts';
+import { applyInvestmentChanges } from '../server/services/investment-transactions.ts';
+import { planInvestmentChanges } from '../server/lib/investment-transactions.ts';
 const base = process.env.TEST_BASE_URL || 'http://localhost:3002';
 // Sign-in is always required: once the app is up, a throwaway passphrase is created on this disposable database
 // and its session cookie goes with every request.
@@ -175,15 +177,21 @@ assert.ok(
   'newest first',
 );
 assert.ok(
-  all.every((t) => t.category),
-  'every transaction has an effective category',
+  all.every((t) => t.activity === 'investment' || t.category),
+  'every bank and card transaction has an effective category',
+);
+assert.ok(
+  all.some((t) => t.activity === 'investment' && t.category === null),
+  'seeded brokerage activity is listed, not counted until categorised',
 );
 const categories = (await request('/categories')).data.categories;
 const groceries = categories.find((c: any) => c.key === 'groceries');
 assert.equal(
   categories.reduce((n: number, c: any) => n + c.transaction_count, 0),
-  // a split transaction counts once per part
-  all.reduce((n, t) => n + Math.max(1, t.splits.length), 0),
+  // a split transaction counts once per part; brokerage activity only once categorised
+  all
+    .filter((t) => t.category || t.splits.length)
+    .reduce((n, t) => n + Math.max(1, t.splits.length), 0),
   'category counts add up to the transactions',
 );
 const byCategory = (await request('/transactions?limit=500&category=' + groceries.id)).data;
@@ -553,7 +561,9 @@ assert.ok(
 const afterSplit = (await request('/categories')).data.categories;
 assert.equal(
   afterSplit.reduce((n: number, c: any) => n + c.transaction_count, 0),
-  all.reduce((n, t) => n + Math.max(1, t.splits.length), 0) + 1,
+  all
+    .filter((t) => t.activity !== 'investment')
+    .reduce((n, t) => n + Math.max(1, t.splits.length), 0) + 1,
   'a split counts once per part',
 );
 // Replacing the split replaces every part.
@@ -2069,8 +2079,214 @@ assert.equal(crossSiteEdit.status, 403);
   await pool.query("DELETE FROM accounts WHERE id='itest:acct'");
 }
 
+// --- Brokerage activity: listed unless the Transactions page hides it, counted only once categorised ---
+{
+  await pool.query("DELETE FROM accounts WHERE id IN ('itest:broker','itest:401k')");
+  await pool.query(
+    "INSERT INTO accounts(id,name,institution,kind,source) VALUES('itest:broker','Brokerage test','Test','investment','manual'),('itest:401k','401k test','Test','investment','manual')",
+  );
+  const cats = (await request('/categories')).data.categories;
+  const catId = (key: string) => Number(cats.find((c: any) => c.key === key).id);
+  const dividends = catId('dividends_gains');
+  const range = 'from=2025-05-01&to=2025-05-31';
+  const totals = async () => (await request('/reports/cash-flow?' + range)).data.totals;
+  const flows = async () => (await request('/investments/cash-flows')).data.flows;
+  const count = async (id: number) =>
+    (await request('/categories')).data.categories.find((c: any) => c.id === id).transaction_count;
+  const list = async (extra = '') =>
+    (await request(`/transactions?limit=500&${range}${extra}`)).data.transactions as any[];
+
+  // A transaction you add to an investment account counts in Reports, hidden from the list or not.
+  const start = await totals();
+  const manual = (
+    await request('/transactions', {
+      account_id: 'itest:401k',
+      date: '2025-05-10',
+      amount: '300',
+      direction: 'in',
+      name: '401k match',
+      category_id: catId('other_income'),
+    })
+  ).data;
+  assert.equal(manual.account_kind, 'investment');
+  const before = {
+    totals: await totals(),
+    flows: await flows(),
+    dividends: await count(dividends),
+  };
+  assert.equal(Number(before.totals.income) - Number(start.income), 300);
+
+  const window = { from: '2025-05-01', to: '2025-05-31', complete: true };
+  const inv = (id: string, extra: any) => ({
+    investment_transaction_id: id,
+    account_id: 'broker',
+    security_id: 'sec',
+    date: '2025-05-12',
+    name: id.toUpperCase(),
+    quantity: 0,
+    amount: 0,
+    price: null,
+    fees: null,
+    type: 'cash',
+    subtype: null,
+    iso_currency_code: 'USD',
+    ...extra,
+  });
+  const page = {
+    transactions: [
+      inv('buy', { type: 'buy', subtype: 'buy', quantity: 10, amount: 1000, price: 100, fees: 0 }),
+      inv('deposit', { security_id: null, subtype: 'deposit', amount: -2000, date: '2025-05-11' }),
+      inv('div', { subtype: 'dividend', amount: -42.5, date: '2025-05-20' }),
+      inv('move', { type: 'transfer', subtype: 'transfer', quantity: 3, date: '2025-05-21' }),
+    ],
+    securities: [
+      { security_id: 'sec', ticker_symbol: 'ITST', name: 'Integration fund', type: 'etf' },
+    ],
+  };
+  const accountsMap = new Map([['broker', 'itest:broker']]);
+  const plan = (pages: any[], w = window) =>
+    planInvestmentChanges('itest', pages, accountsMap, 'plaid_sandbox', w, []);
+  await applyInvestmentChanges('itest', plan([page]), false);
+
+  // Uncategorised brokerage activity counts nowhere.
+  assert.deepEqual(
+    await totals(),
+    before.totals,
+    'a buy, a deposit or a dividend alone changes no report',
+  );
+  assert.deepEqual(await flows(), before.flows);
+  assert.equal(await count(dividends), before.dividends);
+
+  // Listed by default, hidden with investments=hide (manual rows on investment accounts too).
+  const all = await list();
+  for (const id of ['itest:buy', 'itest:deposit', 'itest:div', 'itest:move', manual.id])
+    assert.ok(
+      all.some((t) => t.id === id),
+      id,
+    );
+  assert.ok(!(await list('&investments=hide')).some((t) => t.account_kind === 'investment'));
+  assert.equal((await request('/transactions?investments=show')).status, 400);
+  const buy = all.find((t) => t.id === 'itest:buy');
+  assert.equal(buy.activity, 'investment');
+  assert.equal(buy.category, null);
+  assert.equal(buy.category_source, 'none');
+  assert.deepEqual(
+    [
+      buy.investment.type,
+      buy.investment.quantity,
+      buy.investment.price,
+      buy.investment.security.symbol,
+    ],
+    ['buy', '10', '100', 'ITST'],
+  );
+  assert.equal(all.find((t) => t.id === manual.id).activity, 'bank');
+  assert.ok(
+    (await list('&q=itst')).some((t) => t.id === 'itest:buy'),
+    'found by security symbol',
+  );
+  assert.ok(!(await list('&merchant=DIV')).some((t) => t.activity === 'investment'));
+  assert.ok(
+    !(await list('&type=income')).some((t) => t.id === 'itest:div'),
+    'not income until categorised',
+  );
+
+  // Paging across bank and brokerage rows returns every row once.
+  const seen: string[] = [];
+  for (let cursor = ''; ;) {
+    const r = (await request(`/transactions?limit=2&${range}${cursor ? '&cursor=' + cursor : ''}`))
+      .data;
+    seen.push(...r.transactions.map((t: any) => t.id));
+    if (!r.nextCursor) break;
+    cursor = r.nextCursor;
+  }
+  assert.deepEqual(
+    seen,
+    all.map((t) => t.id),
+  );
+  assert.equal(new Set(seen).size, seen.length);
+
+  // Only the category and notes can change.
+  const div = 'itest%3Adiv';
+  assert.equal(
+    (await request('/transactions/' + div, { date: '2025-05-01' }, 'PATCH')).status,
+    409,
+  );
+  assert.equal((await request('/transactions/' + div, undefined, 'DELETE')).status, 409);
+  assert.equal(
+    (await request('/transactions/' + div + '/splits', { splits: [] }, 'PUT')).status,
+    409,
+  );
+  assert.equal(
+    (await request('/transactions/' + div, { category_id: 999999 }, 'PATCH')).status,
+    400,
+  );
+  const categorised = (
+    await request('/transactions/' + div, { category_id: dividends, notes: 'reinvested' }, 'PATCH')
+  ).data;
+  assert.equal(categorised.category.id, dividends);
+  assert.equal(categorised.category_source, 'user');
+  assert.equal(categorised.notes, 'reinvested');
+
+  // Categorised, it counts in Reports like any income, but never as money added to the investments.
+  const counted = await totals();
+  assert.equal(Number(counted.income) - Number(before.totals.income), 42.5);
+  assert.deepEqual(await flows(), before.flows, 'a dividend inside a brokerage is not a cash flow');
+  assert.equal(await count(dividends), before.dividends + 1);
+  assert.ok((await list('&categories=' + dividends)).some((t) => t.id === 'itest:div'));
+  assert.ok((await list('&type=income')).some((t) => t.id === 'itest:div'));
+  assert.ok(!(await list('&type=expense')).some((t) => t.id === 'itest:buy'));
+
+  // A sync keeps the owner's category and notes.
+  await applyInvestmentChanges('itest', plan([page]), false);
+  const kept = (await list()).find((t) => t.id === 'itest:div');
+  assert.deepEqual([kept.category.id, kept.notes], [dividends, 'reinvested']);
+
+  // Rows Plaid no longer returns in a fully read window disappear, and come back if it sends them again.
+  await applyInvestmentChanges(
+    'itest',
+    planInvestmentChanges(
+      'itest',
+      [{ transactions: [page.transactions[0]], securities: [] }],
+      accountsMap,
+      'p',
+      window,
+      (await list())
+        .filter((t) => t.activity === 'investment')
+        .map((t) => ({ id: t.id, date: t.date })),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    (await list()).filter((t) => t.activity === 'investment').map((t) => t.id),
+    ['itest:buy'],
+  );
+  assert.equal(
+    Number((await totals()).income),
+    Number(before.totals.income),
+    'a removed dividend stops counting',
+  );
+  await applyInvestmentChanges('itest', plan([page]), false);
+  assert.equal((await list()).find((t) => t.id === 'itest:div').category.id, dividends);
+
+  // Back to "Not counted", and a deleted category leaves the row not counted.
+  await request('/transactions/' + div, { category_id: null }, 'PATCH');
+  assert.deepEqual(await totals(), before.totals);
+  const temp = (
+    await request('/categories', {
+      name: 'Integration activity',
+      group_id: cats.find((c: any) => c.key === 'other_income').group_id,
+    })
+  ).data;
+  await request('/transactions/' + div, { category_id: temp.id }, 'PATCH');
+  assert.equal((await request('/categories/' + temp.id, undefined, 'DELETE')).status, 200);
+  assert.equal((await list()).find((t) => t.id === 'itest:div').category, null);
+
+  await pool.query("DELETE FROM accounts WHERE id IN ('itest:broker','itest:401k')");
+  await pool.query("DELETE FROM securities WHERE id='itest:sec'");
+}
+
 console.log(
-  'PASS: transaction list, filters, paging, edits, sync keeps user edits, groups and categories, splits, manual transactions, monarch import, remap, reports, investment cash flows, typed-in holdings, ticker prices, balance priced at closes, sync schedule, rules',
+  'PASS: transaction list, filters, paging, edits, sync keeps user edits, groups and categories, splits, manual transactions, monarch import, remap, reports, investment cash flows, typed-in holdings, ticker prices, balance priced at closes, sync schedule, rules, brokerage activity',
 );
 
 // --- First-run passphrase setup (the real settings table) ---

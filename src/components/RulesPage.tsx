@@ -391,8 +391,8 @@ function RuleEditor({
               />
             </div>
             <Fineprint>
-              A rule never changes a transaction you categorised yourself, a split one or one you
-              added. Rules run top to bottom; a later match wins.
+              A rule never changes a transaction you categorised yourself, a split one, one you
+              added or brokerage activity. Rules run top to bottom; a later match wins.
             </Fineprint>
           </div>
         </div>

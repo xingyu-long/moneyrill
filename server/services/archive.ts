@@ -20,6 +20,7 @@ const tables = [
   'categories',
   'transactions',
   'transaction_splits',
+  'investment_transactions',
 ] as const;
 export async function exportArchive() {
   const data: any = {

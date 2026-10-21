@@ -113,6 +113,7 @@ export type Transaction = {
   account_mask: string | null;
   institution: string;
   account_included: boolean;
+  account_kind: string;
   /** The date shown: your date if you changed it, otherwise the bank's. */
   date: string;
   provider_date: string;
@@ -133,6 +134,16 @@ export type Transaction = {
   splits: Split[];
   /** False when the bank changed the amount after the split was saved. */
   split_balanced: boolean;
+  /** `investment`: brokerage activity (a buy, a dividend...), read-only except its category and notes. */
+  activity: 'bank' | 'investment';
+  investment?: {
+    type: string;
+    subtype: string | null;
+    quantity: string;
+    price: string | null;
+    fees: string | null;
+    security: { symbol: string | null; name: string | null } | null;
+  };
 };
 
 // --- Reports ---

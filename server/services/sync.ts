@@ -9,6 +9,8 @@ import { decrypt } from './token-crypto.ts';
 import { saveConnection, updateMetadata } from './connections.ts';
 import { refreshBenchmarks } from './benchmarks.ts';
 import { applyHoldingPrices, refreshSecurityPrices } from './prices.ts';
+import { assetClassOf } from '../lib/investment-transactions.ts';
+import { syncInvestmentTransactions } from './investment-transactions.ts';
 import { syncTransactions } from './transactions.ts';
 
 const provenance = () => `plaid_${config.plaidEnv}`;
@@ -152,13 +154,7 @@ export async function syncAll() {
                   c.id + ':' + s.security_id,
                   s.ticker_symbol,
                   s.name || 'Unnamed security',
-                  s.is_cash_equivalent
-                    ? 'Cash'
-                    : s.type === 'fixed income'
-                      ? 'Bonds'
-                      : s.type === 'equity'
-                        ? 'Equities'
-                        : s.type || 'Other',
+                  assetClassOf(s),
                 ],
               );
             for (const a of accounts.filter((a) => a.type === 'investment')) {
@@ -207,6 +203,8 @@ export async function syncAll() {
         // Best effort and separate: a transactions problem must never undo or fail the balances.
         const transactionsError = await syncTransactions(c, access_token, rematchedAccounts);
         if (transactionsError) failures.push(transactionsError);
+        const activityError = await syncInvestmentTransactions(c, access_token);
+        if (activityError) failures.push(activityError);
         try {
           await updateMetadata(c.id, access_token);
         } catch {

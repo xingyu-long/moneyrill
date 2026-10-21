@@ -8,8 +8,9 @@ lines ([07 · Reports](07-reports.md)).
 
 ## Why the return needs care
 
-Plaid gives balances and holdings but no investment transactions, so the app cannot tell money added from money
-earned. A chart of the plain balance reads every deposit, RSU vest or 401(k) contribution as growth (a +432% line
+Plaid gives balances and holdings; brokerage activity is downloaded and listed
+([06](06-transactions-and-categories.md#brokerage-activity)) but not yet used for the return, so the app cannot tell
+money added from money earned. A chart of the plain balance reads every deposit, RSU vest or 401(k) contribution as growth (a +432% line
 next to a +50% Nasdaq-100). The return below takes the cash flow out; where it cannot be computed, the page says
 "value change" and never pretends otherwise.
 
@@ -26,6 +27,7 @@ next to a +50% Nasdaq-100). The return below takes the cash flow out; where it c
 - `security_prices(symbol, date, close > 0)`: plain daily closes, see below.
 - `benchmark_observations(symbol, date, level, provenance)`: dividend-adjusted closes of SPY and QQQ.
 - `balance_snapshots.holdings_adjustment`: see [Ticker prices](#ticker-prices).
+- `investment_transactions`: brokerage activity, see [06](06-transactions-and-categories.md#brokerage-activity).
 
 ## Typed-in holdings
 
@@ -109,7 +111,8 @@ Computed **live every time, nothing stored** (an earlier stored version went sta
 day, the money added to (positive) or taken out of (negative) the investments = **income minus spending** on included
 accounts, taken from the same lines Reports uses ([07](07-reports.md)): income and expense lines of included
 accounts only, **transfers left out** (card payments, moves between your own accounts, to or from a brokerage), pending
-rows not counted, a refund reducing spending. Amounts carry the provider sign, so the net flow is the negated sum.
+rows not counted, a refund reducing spending. **Brokerage activity never counts here**, even once categorised as
+income (`origin = 'bank'` lines only): a dividend paid inside a brokerage is growth, not money added. Amounts carry the provider sign, so the net flow is the negated sum.
 It answers `{flows: [{date, amount}], from, auto_from, override}`.
 
 - **`from`** (cash flows are counted from this day, the return never starts earlier, because before it deposits would

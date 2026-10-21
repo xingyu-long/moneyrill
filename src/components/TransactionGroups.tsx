@@ -2,13 +2,33 @@ import { cash, dateLabel, isPrivate } from '../lib/format.ts';
 import { cn } from '../lib/cn.ts';
 import { Badge } from './ui/badge.tsx';
 import { Card } from './ui/card.tsx';
-import { longDate, merchantOf } from '../lib/transactions.ts';
+import { activityLabel, longDate, merchantOf } from '../lib/transactions.ts';
 import type { Transaction } from '../types.ts';
 
 /** Money in shows as +$x in green; money out as plain $x (the provider sign is positive = out). */
 export function Amount({ value }: { value: string }) {
   const n = Number(value);
   return n < 0 ? <span className="text-positive">+{cash(-n)}</span> : <span>{cash(n)}</span>;
+}
+
+/** A brokerage row moving shares and no money says how many shares; everything else shows its amount. */
+function RowAmount({ t }: { t: Transaction }) {
+  const q = Number(t.investment?.quantity ?? 0);
+  if (t.activity === 'investment' && Number(t.amount) === 0 && q !== 0)
+    return (
+      <span className="text-muted-foreground">
+        {isPrivate() ? '•••' : `${q > 0 ? '+' : '−'}${Math.abs(q)}`} sh
+      </span>
+    );
+  return <Amount value={t.amount} />;
+}
+
+/** The category, or for brokerage activity nobody categorised, what happened (it counts nowhere until then). */
+function categoryText(t: Transaction, withEmoji: boolean) {
+  if (t.splits.length) return null;
+  if (t.activity === 'investment' && !t.category) return activityLabel(t);
+  if (!t.category) return null;
+  return withEmoji ? `${t.category.emoji} ${t.category.name}` : t.category.name;
 }
 
 // Private mode shows no direction either: a masked total should not reveal if the day was net in or out.
@@ -63,7 +83,9 @@ export function TransactionGroups({
                       aria-hidden="true"
                       className="grid size-[38px] shrink-0 place-items-center rounded-full bg-muted text-[17px]"
                     >
-                      {t.splits.length ? '✂️' : (t.category?.emoji ?? '•')}
+                      {t.splits.length
+                        ? '✂️'
+                        : (t.category?.emoji ?? (t.activity === 'investment' ? '📈' : '•'))}
                     </span>
                     <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)]">
                       <span className="flex min-w-0 items-center gap-2">
@@ -74,9 +96,7 @@ export function TransactionGroups({
                       <small className="truncate text-xs text-muted-foreground">
                         {t.splits.length
                           ? `Split · ${t.splits.length} parts`
-                          : t.category
-                            ? t.category.name
-                            : 'No category'}
+                          : (categoryText(t, false) ?? 'No category')}
                         {!t.splits.length && t.category_source === 'auto' && (
                           <span className="ml-1 text-[10px]">auto</span>
                         )}
@@ -96,7 +116,7 @@ export function TransactionGroups({
                       </small>
                     </span>
                     <span className="shrink-0 tabular-nums">
-                      <Amount value={t.amount} />
+                      <RowAmount t={t} />
                     </span>
                   </button>
                   {t.splits.map((p, i) => (
@@ -150,9 +170,7 @@ export function TransactionGroups({
                 <span className={cn(CELL, 'max-[760px]:col-start-1 max-[760px]:text-[11px]')}>
                   {t.splits.length
                     ? `✂️ Split · ${t.splits.length} parts`
-                    : t.category
-                      ? `${t.category.emoji} ${t.category.name}`
-                      : '—'}
+                    : (categoryText(t, true) ?? '—')}
                   {!t.splits.length && t.category_source === 'auto' && (
                     <small className="ml-1.5 text-[9px] text-muted-foreground">auto</small>
                   )}
@@ -175,7 +193,7 @@ export function TransactionGroups({
                   {t.account_mask ? ` (…${t.account_mask})` : ''}
                 </span>
                 <span className={cn(CELL, AMOUNT)}>
-                  <Amount value={t.amount} />
+                  <RowAmount t={t} />
                 </span>
               </button>
               {t.splits.map((p, i) => (

@@ -14,6 +14,8 @@ export type TransactionFilters = {
   merchant?: string;
   categories?: number[];
   accounts?: string[];
+  /** `hide`: no rows of investment accounts and no brokerage activity (the Transactions page's default). */
+  investments?: 'hide';
 };
 
 function query(filters: TransactionFilters) {
@@ -27,6 +29,7 @@ function query(filters: TransactionFilters) {
   if (filters.merchant) p.set('merchant', filters.merchant);
   if (filters.categories?.length) p.set('categories', filters.categories.join(','));
   if (filters.accounts?.length) p.set('accounts', filters.accounts.join(','));
+  if (filters.investments) p.set('investments', filters.investments);
   return '/transactions?' + p;
 }
 

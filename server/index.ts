@@ -1,6 +1,6 @@
 import { migrate } from './db/migrate.ts';
 import { pool } from './db/pool.ts';
-import { seed, seedReportHistory, seedTransactions } from './db/seed.ts';
+import { seed, seedInvestmentActivity, seedReportHistory, seedTransactions } from './db/seed.ts';
 import { remapAutoCategories } from './services/transactions.ts';
 import { createApp } from './app.ts';
 import { tokenKeyProblem } from './services/token-crypto.ts';
@@ -13,6 +13,7 @@ await migrate();
 await seed();
 await seedTransactions();
 await seedReportHistory();
+await seedInvestmentActivity();
 await remapAutoCategories();
 const app = await createApp();
 await app.listen({ host: '0.0.0.0', port: Number(process.env.PORT || 3002) });

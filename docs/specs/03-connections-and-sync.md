@@ -85,7 +85,9 @@ It inserts a `sync_runs` row (`running`), then for **each active connection of t
      ([04](04-accounts-and-net-worth.md#net-worth)); commit. On any error roll the whole connection back.
 3. **After** that commit, separately and best-effort: download transactions
    ([06](06-transactions-and-categories.md); a failure adds `TRANSACTIONS_<code>` to the message and never undoes balances),
-   then refresh institution name and consent expiry.
+   then brokerage activity for connections with `investments` access
+   ([06](06-transactions-and-categories.md#brokerage-activity); `INVESTMENTS_<code>`, the same quiet codes), then
+   refresh institution name and consent expiry.
 4. A connection-level failure records `code = Plaid error_code or SYNC_FAILED` on the connection and its accounts
    (`last_error`), logs it (`sync.connection_failed` with the connection id, institution and code, never amounts),
    and **the other connections still run**. Failed syncs keep the prior data.
