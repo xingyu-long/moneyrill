@@ -86,7 +86,7 @@ export const rangeLabel = (from: string | null, to: string | null) =>
         ? `Until ${shortDay(to)}`
         : 'All time';
 
-const shortDay = (iso: string) => dayLabel(iso).replace(/^(\w{3})\w*/, '$1');
+export const shortDay = (iso: string) => dayLabel(iso).replace(/^(\w{3})\w*/, '$1');
 
 /** Accept only a spec that came from this module's types (it is read back from local storage). */
 export function parseSpec(v: any): DateSpec {

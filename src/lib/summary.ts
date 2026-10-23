@@ -1,5 +1,6 @@
 import { cashWhole, dateLabelYear } from './format.ts';
-import type { DateSpec } from './reportDates.ts';
+import { CUSTOM } from './periods.ts';
+import { shortDay, type DateSpec } from './reportDates.ts';
 import type { Tab } from './routes.ts';
 
 // The one plain sentence under each page's title ("You've kept 32% of your income this month."). Each function takes
@@ -76,8 +77,22 @@ export function accountsSentence(a: {
   return [text(`${count} ${noun}, ${all}synced within the last ${sinceText(a.syncedHoursAgo)}.`)];
 }
 
+/**
+ * The days a change runs over: `early` when a short range had to open on an earlier snapshot. Only a custom range and
+ * an early one are described by their dates; the others keep their own words.
+ */
+export type Span = { from: string; to: string; early: boolean };
+
+function spanPhrase(period: string, span?: Span) {
+  if (!span) return null;
+  if (period === CUSTOM) return `from ${shortDay(span.from)} to ${shortDay(span.to)}`;
+  return span.early ? `since ${shortDay(span.from)}` : null;
+}
+
 /** The chart range's own words, for "... over the last month". */
 const PERIOD_PHRASE: Record<string, string> = {
+  '1D': 'over the last day',
+  '1W': 'over the last week',
   '1M': 'over the last month',
   '2M': 'over the last 2 months',
   '3M': 'over the last 3 months',
@@ -86,7 +101,8 @@ const PERIOD_PHRASE: Record<string, string> = {
   '1Y': 'over the last year',
   ALL: 'since the start',
 };
-export const periodPhrase = (period: string) => PERIOD_PHRASE[period] ?? 'over this range';
+export const periodPhrase = (period: string, span?: Span) =>
+  spanPhrase(period, span) ?? PERIOD_PHRASE[period] ?? 'over this range';
 
 /** What the top of the allocation says: "Mostly US stocks, 62% of the portfolio." */
 export function allocationSentence(a: { name: string; share: number } | null): Sentence {
@@ -115,8 +131,13 @@ export function bestPeriodSentence(
 export const periodName = (period: string) => (period === 'ALL' ? 'All-time' : period);
 
 /** How long a change has been going on, for the pill under net worth: "since last month", "over the last year". */
-export const changePhrase = (period: string) =>
-  period === '1M' ? 'since last month' : periodPhrase(period);
+const CHANGE_PHRASE: Record<string, string> = {
+  '1D': 'since yesterday',
+  '1W': 'since last week',
+  '1M': 'since last month',
+};
+export const changePhrase = (period: string, span?: Span) =>
+  spanPhrase(period, span) ?? CHANGE_PHRASE[period] ?? periodPhrase(period);
 
 /**
  * `change` is a percent. `kind` says what it measures: the portfolio's return (deposits and withdrawals left out) or,
@@ -247,12 +268,16 @@ export function assetsSentence(a: { assets: number; liabilities: number }): Sent
 }
 
 /** Home's "Investments" card: the change in the portfolio's value over the chart range (money added counts). */
-export function portfolioSentence(p: { change: number | null; period: string }): Sentence {
+export function portfolioSentence(p: {
+  change: number | null;
+  period: string;
+  span?: Span;
+}): Sentence {
   if (p.change === null || !Number.isFinite(p.change)) return [text('Not enough history yet.')];
   return [
     text("Your portfolio's value is "),
     figure(`${p.change >= 0 ? 'up' : 'down'} ${Math.abs(p.change).toFixed(2)}%`),
-    text(` ${periodPhrase(p.period)}.`),
+    text(` ${periodPhrase(p.period, p.span)}.`),
   ];
 }
 

@@ -48,7 +48,7 @@ export function Range({
   options = PERIODS,
   soft = false,
 }: {
-  options?: readonly (typeof PERIODS)[number][];
+  options?: readonly string[];
   soft?: boolean;
 }) {
   const { activePeriod, setInvestmentPeriod, setPeriod, tab } = useApp();
@@ -57,7 +57,7 @@ export function Range({
       label="Chart range"
       tone={soft ? 'soft' : 'default'}
       options={options}
-      value={activePeriod as (typeof PERIODS)[number]}
+      value={activePeriod}
       onChange={tab === 'Investments' ? setInvestmentPeriod : setPeriod}
       render={(p) => (p === 'ALL' ? 'All' : p)}
     />

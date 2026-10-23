@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../../src/App.tsx';
 import { MASK, setPrivateMode } from '../../src/lib/format.ts';
 import { todayIso } from '../../src/lib/calendar.ts';
+import { rangeLabel, resolveSpec } from '../../src/lib/reportDates.ts';
 import { stubApi } from './fixture.ts';
 
 beforeEach(() => {
@@ -348,6 +349,54 @@ describe('Home design', () => {
     // the pill says what changed and over what; Private mode is in the top bar, not here
     expect(hero).toHaveTextContent(/since last month|Not enough history/);
     expect(within(hero).queryByRole('button', { name: /Private mode/ })).toBeNull();
+  });
+
+  it('the hero offers 1D to All and a custom range, and the change shows its percentage', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const hero = await net();
+    const range = within(hero).getByRole('group', { name: 'Chart range' });
+    expect(
+      within(range)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['1D', '1W', '1M', '3M', 'YTD', '1Y', 'All']);
+    // the made-up balances run from $1,950 on Oct 1 to $2,350 on Oct 3
+    expect(hero).toHaveTextContent('+$400.00(+20.51%) since last month');
+    // there is no snapshot on Oct 2, so 1D opens on Oct 1 and says so
+    await user.click(within(range).getByRole('button', { name: '1D' }));
+    expect(hero).toHaveTextContent('+$400.00(+20.51%) since Oct 1, 2026');
+    expect(within(hero).getByRole('button', { name: 'Custom' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('a custom range is picked with From and To, and Cancel leaves the range as it was', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const hero = await net();
+    await user.click(within(hero).getByRole('button', { name: 'Custom' }));
+    let dialog = within(hero).getByRole('dialog', { name: 'Custom range' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(within(hero).queryByRole('dialog')).toBeNull();
+    expect(hero).toHaveTextContent('since last month');
+
+    await user.click(within(hero).getByRole('button', { name: 'Custom' }));
+    dialog = within(hero).getByRole('dialog', { name: 'Custom range' });
+    await user.click(within(dialog).getByRole('button', { name: 'Last month' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Apply' }));
+    const { from, to } = resolveSpec({ mode: 'preset', id: 'lastMonth' }, todayIso());
+    const label = rangeLabel(from!, to!);
+    const custom = within(hero).getByRole('button', { name: label });
+    expect(custom).toHaveAttribute('aria-pressed', 'true');
+    // no preset is chosen while the custom range is
+    const range = within(hero).getByRole('group', { name: 'Chart range' });
+    for (const b of within(range).getAllByRole('button'))
+      expect(b).toHaveAttribute('aria-pressed', 'false');
+    // a preset takes over again
+    await user.click(within(range).getByRole('button', { name: '1M' }));
+    expect(within(hero).getByRole('button', { name: 'Custom' })).toBeInTheDocument();
   });
 
   it('net worth is always the hero, above the cards, however they are ordered', async () => {

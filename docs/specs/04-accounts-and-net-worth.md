@@ -88,8 +88,10 @@ months back, `YTD` to Jan 1, `ALL` to 1900-01-01.
   each account's latest balance up to that date, summed, liabilities negated when `signed`. An account contributes
   only from its first snapshot. A date where an included account's balance is unknown has `value: null` and a
   `missing` count (the chart shows a gap, not a wrong number).
-- **Range**: `1M, 2M, 3M, 6M, YTD, 1Y, ALL` (`startDate(lastBalanceDate, period)`); the last balance date is the newest
-  snapshot, not today. The imported series replaces the derived one only on the unfiltered view.
+- **Range**: `1M, 2M, 3M, 6M, YTD, 1Y, ALL` (`startDate(lastBalanceDate, period)`), and on Home also `1D`, `1W` and a custom
+  From/To; the last balance date is the newest snapshot, not today. `1D`, `1W` and a custom range open on the last snapshot
+  on or before their first day (`openingDate`), since a sync may not run every day. A custom range that ends before the
+  last balance date stops the chart there, and its change runs to its last point instead of today's balances. The imported series replaces the derived one only on the unfiltered view.
 - **Change** over the range: `delta = net − first point`, `pct = (net / first − 1) × 100`, unavailable (`null`) when
   there are fewer than two points, or the baseline is zero, negative or unknown.
 

@@ -42,11 +42,18 @@ the cards, and is not one of the cards that can be hidden or moved.
 
 - The amount, centred, in 112px serif (64px on a phone) with the **cents muted**; Private mode shows six dots at a smaller
   size (72 / 44px) so they are not a wall of bullets.
-- A **pill** saying how much it changed and over what: `+$161,200.12 since last month` (an up arrow, accent colour) or
-  `−$…` (a down arrow, warning colour); in Private mode the **percentage** instead. With no baseline: "Not enough history
-  yet". The words are `changePhrase`: 1M "since last month", 2M/3M/6M "over the last N months", YTD "so far this year", 1Y "over
-  the last year", All "since the start".
-- A range selector **1M, 3M, 6M, 1Y, All** (the other pages also offer 2M and YTD), the same period as the figures use.
+- A **pill** saying how much it changed, by how much in percent, and over what: `+$161,200.12 (+2.31%) since last month`
+  (an up arrow, accent colour) or `−$… (−…%)` (a down arrow, warning colour); in Private mode only the **percentage**. The
+  percentage is left out when the baseline is zero or negative. With no baseline: "Not enough history yet". The words are
+  `changePhrase`: 1D "since yesterday", 1W "since last week", 1M "since last month", 2M/3M/6M "over the last N months", YTD
+  "so far this year", 1Y "over the last year", All "since the start", a custom range "from Jul 1, 2026 to Sep 30, 2026".
+  A 1D or 1W range with no snapshot on its first day opens on the last snapshot before it and says so: "since Oct 1, 2026".
+- A range selector **1D, 1W, 1M, 3M, YTD, 1Y, All** and **Custom** (`HeroRange`), the same period as the figures use; the
+  other pages keep their own lists. **Custom** opens a From and To picker (no day after today; the start must be before the
+  end, otherwise Apply is off and it says so) with shortcuts that fill both in (This month, Last month, Last year). Apply
+  makes it the range and the button shows its dates; Cancel, Escape or a click outside leaves the range as it was; picking a
+  preset leaves the custom range. The custom range is not saved: a reload opens on 1M. While it is chosen, Accounts follows
+  it too, with no preset lit.
 - The **net worth chart** below it: just the line and its fill (no axes or grid), **edge to edge** (negative margins undo the
   page padding), with the hover tooltip. The cards that follow **overlap the chart's lower edge by 44px**, so the chart keeps
   a 56px empty margin below the line (and its height is 280px) so a dip in the line never runs behind a card. With fewer than
@@ -103,8 +110,8 @@ the round **Sync accounts** button in the top bar; adding a manual account is in
   sentence on category pages, Private mode masking amounts but not counts, the line keeping its height while loading.
 - Home layout (`tests/home-layout.test.ts`): the default hides Spending and Accounts; a damaged or old-version value falls
   back; unknown and repeated ids dropped, new ids appended shown; toggle, move, `dropIndex`, `moveWidgetTo` and nudge.
-- Home (`tests/ui/home.test.tsx`, `tests/ui/private.test.tsx`): hero amount with muted cents; the pill and `changePhrase`; the
-  range selector; each card's content and empty state and links (including the category rows' addresses); Customize hides and
+- Home (`tests/ui/home.test.tsx`, `tests/ui/private.test.tsx`): hero amount with muted cents; the pill with its percentage and
+  `changePhrase`; the range selector (1D to All, 1D opening on an earlier snapshot, Custom applied and cancelled); each card's content and empty state and links (including the category rows' addresses); Customize hides and
   reorders and persists; Private mode masks every amount.
 - Spending comparison (`tests/home-layout.test.ts`): each mode's slots and labels, the running totals stopping at today,
   the average month ignoring leading empty months, week starts on Sunday.

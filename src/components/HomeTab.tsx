@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowUpRight, LayoutGrid } from 'lucide-react';
 import { api } from '../api.ts';
-import { Chart, Empty, Range } from './common.tsx';
+import { Chart, Empty } from './common.tsx';
+import { HeroRange } from './HeroRange.tsx';
 import { Amount } from './TransactionGroups.tsx';
 import { Badge } from './ui/badge.tsx';
 import { Figures, Meter, Note, SaySentence, Stat, Tile } from './HomeParts.tsx';
@@ -22,9 +23,6 @@ import { merchantOf } from '../lib/transactions.ts';
 import { useApp } from '../state/AppContext.tsx';
 import { useReport } from '../state/useReport.ts';
 import type { CashFlowReport, Transaction } from '../types.ts';
-
-/** The periods the hero offers (the other pages keep the longer list). */
-const HERO_RANGES = ['1M', '3M', '6M', '1Y', 'ALL'] as const;
 
 const KIND_LABEL: Record<string, string> = {
   cash: 'Cash',
@@ -48,8 +46,10 @@ export function HomeTab() {
     netChange,
     netPercent,
     portfolio,
+    portfolioEnd,
     portfolioStart,
     positions,
+    span,
     load,
     setCustomizing,
     setError,
@@ -92,6 +92,7 @@ export function HomeTab() {
   );
   const [recent, setRecent] = useState<Transaction[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const { categories } = useCategories();
   useEffect(() => {
     let current = true;
@@ -134,7 +135,11 @@ export function HomeTab() {
   const netWorthHero = (
     <section
       key="net-worth"
-      className="relative z-0 col-span-full -mx-[38px] mb-[-44px] grid justify-items-center gap-5 text-center max-[1150px]:-mx-[25px] max-[760px]:-mx-4 min-[1600px]:-mx-[55px]"
+      className={cn(
+        // above the cards while the custom range is open, so its panel is not hidden under them
+        picking ? 'z-20' : 'z-0',
+        'relative col-span-full -mx-[38px] mb-[-44px] grid justify-items-center gap-5 text-center max-[1150px]:-mx-[25px] max-[760px]:-mx-4 min-[1600px]:-mx-[55px]',
+      )}
     >
       <h2 className="sr-only">Net worth</h2>
       <div
@@ -159,13 +164,20 @@ export function HomeTab() {
           )}
         >
           {netChange < 0 ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}
-          {isPrivate()
-            ? percent(netPercent)
-            : `${netChange < 0 ? '−' : '+'}${cash(Math.abs(netChange))}`}{' '}
-          {changePhrase(activePeriod)}
+          {isPrivate() ? (
+            percent(netPercent)
+          ) : (
+            <>
+              {`${netChange < 0 ? '−' : '+'}${cash(Math.abs(netChange))}`}
+              {netPercent !== null && (
+                <span className="font-normal">({percent(netPercent).replace('-', '−')})</span>
+              )}
+            </>
+          )}{' '}
+          <span className="font-normal">{changePhrase(activePeriod, span)}</span>
         </span>
       )}
-      <Range options={HERO_RANGES} soft />
+      <HeroRange onOpen={setPicking} />
       <div className="w-full">
         {chart.length > 1 ? (
           <Chart bare />
@@ -255,8 +267,9 @@ export function HomeTab() {
             <SaySentence>
               <Words
                 sentence={portfolioSentence({
-                  change: pct(portfolio, portfolioStart),
+                  change: portfolioEnd === null ? null : pct(portfolioEnd, portfolioStart),
                   period: activePeriod,
+                  span,
                 })}
               />
             </SaySentence>

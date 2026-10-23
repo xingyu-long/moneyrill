@@ -10,7 +10,7 @@ import {
   delta,
   number,
 } from '../src/lib/format.ts';
-import { startDate } from '../src/lib/periods.ts';
+import { openingDate, startDate } from '../src/lib/periods.ts';
 
 test('cash formats dollars and treats unknown as a dash', () => {
   assert.equal(cash(1234.5), '$1,234.50');
@@ -43,6 +43,20 @@ test('startDate maps each period to a window start', () => {
   assert.equal(startDate('2026-10-03', '1Y'), '2025-10-03');
   assert.equal(startDate('2026-10-03', 'YTD'), '2026-01-01');
   assert.equal(startDate('2026-10-03', 'ALL'), '1900-01-01');
+  assert.equal(startDate('2026-10-03', '1D'), '2026-10-02');
+  assert.equal(startDate('2026-10-03', '1W'), '2026-09-26');
+});
+
+test('short and custom ranges open on the last snapshot on or before their first day', () => {
+  const dates = ['2026-10-03', '2026-09-20', '2026-09-28', '2026-10-05'];
+  // no snapshot on Oct 2: 1D opens on Sep 28, the last one before it
+  assert.equal(openingDate('2026-10-02', '1D', dates), '2026-09-28');
+  assert.equal(openingDate('2026-09-26', '1W', dates), '2026-09-20');
+  assert.equal(openingDate('2026-10-03', 'CUSTOM', dates), '2026-10-03');
+  // nothing before the start: it stays, and the chart begins at the first snapshot after it
+  assert.equal(openingDate('2026-09-01', 'CUSTOM', dates), '2026-09-01');
+  // the longer ranges keep their own start
+  assert.equal(openingDate('2026-09-03', '1M', dates), '2026-09-03');
 });
 
 test('private mode masks your amounts and shares but never percentages or public prices', async () => {

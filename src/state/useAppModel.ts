@@ -26,7 +26,7 @@ import {
   summarizeNetWorth,
   visibleAccounts,
 } from '../lib/accounts.ts';
-import { startDate } from '../lib/periods.ts';
+import { CUSTOM, openingDate, startDate } from '../lib/periods.ts';
 import { accountIdOf, isKnownPath, tabOf, tabPath, type Tab } from '../lib/routes.ts';
 import { HOME_KEY, parseLayout, type HomeLayout } from '../lib/homeLayout.ts';
 import { BAR_KEY, parseBar } from '../lib/navigation.ts';
@@ -66,6 +66,8 @@ export function useAppModel() {
   const [data, setData] = useState<Data>(empty),
     [dataset, setDataset] = useState('simulated'),
     [period, setPeriod] = useState('1M'),
+    // The From and To of Home's custom range; it counts only while the period is CUSTOM.
+    [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null),
     [investmentPeriod, setInvestmentPeriod] = useState('YTD');
   const [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
@@ -311,7 +313,18 @@ export function useAppModel() {
   const included = accounts.filter((a) => a.included && a.currency === 'USD');
   const lastDate = lastBalanceDate(data.balances);
   const activePeriod = tab === 'Investments' ? investmentPeriod : period,
-    start = startDate(lastDate, activePeriod);
+    custom = activePeriod === CUSTOM ? customRange : null,
+    // The last day the chart covers: a custom range may end before the latest snapshot.
+    end = custom && custom.to < lastDate ? custom.to : null;
+  const snapshotDates = useMemo(
+    () =>
+      new Set([...data.balances.map((b) => b.date), ...(data.netWorth ?? []).map((d) => d.date)]),
+    [data.balances, data.netWorth],
+  );
+  const requested = custom ? custom.from : startDate(lastDate, activePeriod),
+    start = openingDate(requested, activePeriod, snapshotDates);
+  const upToEnd = <T extends { date: string }>(series: T[]) =>
+    end ? series.filter((d) => d.date <= end) : series;
   const byAccount = useMemo(() => {
     const m = new Map<string, Balance[]>();
     for (const b of data.balances) {
@@ -325,18 +338,30 @@ export function useAppModel() {
   }
   const importedSeries = data.netWorth ?? [];
   // Imported totals cover accounts this app cannot see, so they apply only to the unfiltered view.
-  const chart =
+  const chart = upToEnd(
       importedSeries.length > 0 && !search.trim() && accounts.length === base.length
         ? importedSeries
             .filter((d) => d.date >= start)
             .map((d) => ({ date: d.date, value: Number(d.net_worth), missing: 0 }))
         : history(included, start, true),
-    investmentHistory = history(investmentAccounts, start, false);
+    ),
+    investmentHistory = upToEnd(history(investmentAccounts, start, false));
   const { assets, liabilities, net } = summarizeNetWorth(included);
+  // A range that ends before today measures to its last point; otherwise to today's balances.
+  const closing = (series: { value: number | null }[], now: number) =>
+    end ? (series[series.length - 1]?.value ?? null) : now;
+  const netEnd = closing(chart, net);
+  // The days the change runs over, for its words: a custom range, or a short one that had to open earlier.
+  const span = {
+    from: chart[0]?.date ?? start,
+    to: custom ? custom.to : lastDate,
+    early: start < requested,
+  };
   const beginning = chart.length > 1 ? (chart[0]?.value ?? null) : null,
-    netChange = delta(net, beginning),
-    netPercent = pct(net, beginning);
+    netChange = netEnd === null ? null : delta(netEnd, beginning),
+    netPercent = netEnd === null ? null : pct(netEnd, beginning);
   const portfolio = investmentAccounts.reduce((s, a) => s + (number(a.balance) || 0), 0),
+    portfolioEnd = closing(investmentHistory, portfolio),
     portfolioStart = investmentHistory.length > 1 ? (investmentHistory[0]?.value ?? null) : null;
   const unknown = included.filter((a) => a.balance === null).length;
   const holdings = useMemo(
@@ -428,6 +453,8 @@ export function useAppModel() {
     setDataset,
     period,
     setPeriod,
+    customRange,
+    setCustomRange,
     investmentPeriod,
     setInvestmentPeriod,
     loading,
@@ -506,7 +533,9 @@ export function useAppModel() {
     beginning,
     netChange,
     netPercent,
+    span,
     portfolio,
+    portfolioEnd,
     portfolioStart,
     unknown,
     holdings,

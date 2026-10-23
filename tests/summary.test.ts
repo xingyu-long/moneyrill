@@ -283,6 +283,20 @@ test('Home: what you own and owe, and the portfolio over the chart range', () =>
     "Your portfolio's value is down 0.50% so far this year.",
   );
   assert.equal(plain(portfolioSentence({ change: null, period: '1M' })), 'Not enough history yet.');
+  assert.equal(
+    plain(
+      portfolioSentence({
+        change: 1,
+        period: 'CUSTOM',
+        span: { from: '2026-07-01', to: '2026-09-30', early: false },
+      }),
+    ),
+    "Your portfolio's value is up 1.00% from Jul 1, 2026 to Sep 30, 2026.",
+  );
+  assert.equal(
+    plain(portfolioSentence({ change: 1, period: '1W' })),
+    "Your portfolio's value is up 1.00% over the last week.",
+  );
 });
 
 test('private mode hides the amounts in the Home sentences too', () => {
@@ -349,6 +363,17 @@ test('the pill under net worth says how long the change has run', () => {
   assert.equal(changePhrase('3M'), 'over the last 3 months');
   assert.equal(changePhrase('1Y'), 'over the last year');
   assert.equal(changePhrase('ALL'), 'since the start');
+  assert.equal(changePhrase('1D'), 'since yesterday');
+  assert.equal(changePhrase('1W'), 'since last week');
+  assert.equal(changePhrase('YTD'), 'so far this year');
+  // a range that had to open on an earlier snapshot says so; one that did not keeps its words
+  const span = { from: '2026-09-28', to: '2026-10-03', early: true };
+  assert.equal(changePhrase('1D', span), 'since Sep 28, 2026');
+  assert.equal(changePhrase('1D', { ...span, early: false }), 'since yesterday');
+  assert.equal(
+    changePhrase('CUSTOM', { ...span, early: false }),
+    'from Sep 28, 2026 to Oct 3, 2026',
+  );
 });
 
 test('the allocation sentence names what leads, and the periods head the stats', () => {
