@@ -51,14 +51,16 @@ export function Range({
   options?: readonly string[];
   soft?: boolean;
 }) {
-  const { activePeriod, setInvestmentPeriod, setPeriod, tab } = useApp();
+  const { activePeriod, setHomePeriod, setInvestmentPeriod, setPeriod, tab } = useApp();
   return (
     <Segmented
       label="Chart range"
       tone={soft ? 'soft' : 'default'}
       options={options}
       value={activePeriod}
-      onChange={tab === 'Investments' ? setInvestmentPeriod : setPeriod}
+      onChange={
+        tab === 'Investments' ? setInvestmentPeriod : tab === 'Home' ? setHomePeriod : setPeriod
+      }
       render={(p) => (p === 'ALL' ? 'All' : p)}
     />
   );

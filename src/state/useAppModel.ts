@@ -66,6 +66,8 @@ export function useAppModel() {
   const [data, setData] = useState<Data>(empty),
     [dataset, setDataset] = useState('simulated'),
     [period, setPeriod] = useState('1M'),
+    // Home keeps its own range (it offers 1D, 1W and Custom, which the other pages do not), so a pick there stays there.
+    [homePeriod, setHomePeriod] = useState('1M'),
     // The From and To of Home's custom range; it counts only while the period is CUSTOM.
     [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null),
     [investmentPeriod, setInvestmentPeriod] = useState('YTD');
@@ -312,7 +314,8 @@ export function useAppModel() {
   );
   const included = accounts.filter((a) => a.included && a.currency === 'USD');
   const lastDate = lastBalanceDate(data.balances);
-  const activePeriod = tab === 'Investments' ? investmentPeriod : period,
+  const activePeriod =
+      tab === 'Investments' ? investmentPeriod : tab === 'Home' ? homePeriod : period,
     custom = activePeriod === CUSTOM ? customRange : null,
     // The last day the chart covers: a custom range may end before the latest snapshot.
     end = custom && custom.to < lastDate ? custom.to : null;
@@ -453,6 +456,8 @@ export function useAppModel() {
     setDataset,
     period,
     setPeriod,
+    homePeriod,
+    setHomePeriod,
     customRange,
     setCustomRange,
     investmentPeriod,

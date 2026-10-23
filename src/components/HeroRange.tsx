@@ -27,7 +27,7 @@ const SHORTCUTS: { id: PresetId; label: string }[] = [
  * is open, so it can lift itself above the cards that overlap its chart.
  */
 export function HeroRange({ onOpen }: { onOpen: (open: boolean) => void }) {
-  const { activePeriod, customRange, setCustomRange, setPeriod } = useApp();
+  const { activePeriod, customRange, setCustomRange, setHomePeriod } = useApp();
   const today = todayIso();
   const [open, setOpenState] = useState(false);
   const [draft, setDraft] = useState({ from: addDays(today, -29), to: today });
@@ -115,7 +115,7 @@ export function HeroRange({ onOpen }: { onOpen: (open: boolean) => void }) {
                 disabled={!ready}
                 onClick={() => {
                   setCustomRange(draft);
-                  setPeriod(CUSTOM);
+                  setHomePeriod(CUSTOM);
                   close();
                 }}
               >

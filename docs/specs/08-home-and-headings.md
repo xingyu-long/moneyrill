@@ -48,12 +48,11 @@ the cards, and is not one of the cards that can be hidden or moved.
   `changePhrase`: 1D "since yesterday", 1W "since last week", 1M "since last month", 2M/3M/6M "over the last N months", YTD
   "so far this year", 1Y "over the last year", All "since the start", a custom range "from Jul 1, 2026 to Sep 30, 2026".
   A 1D or 1W range with no snapshot on its first day opens on the last snapshot before it and says so: "since Oct 1, 2026".
-- A range selector **1D, 1W, 1M, 3M, YTD, 1Y, All** and **Custom** (`HeroRange`), the same period as the figures use; the
-  other pages keep their own lists. **Custom** opens a From and To picker (no day after today; the start must be before the
+- A range selector **1D, 1W, 1M, 3M, YTD, 1Y, All** and **Custom** (`HeroRange`), the same period as the figures use. It is
+  Home's own (`homePeriod`): a range picked here does not change Accounts or an account page, and they do not change it. **Custom** opens a From and To picker (no day after today; the start must be before the
   end, otherwise Apply is off and it says so) with shortcuts that fill both in (This month, Last month, Last year). Apply
   makes it the range and the button shows its dates; Cancel, Escape or a click outside leaves the range as it was; picking a
-  preset leaves the custom range. The custom range is not saved: a reload opens on 1M. While it is chosen, Accounts follows
-  it too, with no preset lit.
+  preset leaves the custom range. The range is not saved: a reload opens on 1M.
 - The **net worth chart** below it: just the line and its fill (no axes or grid), **edge to edge** (negative margins undo the
   page padding), with the hover tooltip. The cards that follow **overlap the chart's lower edge by 44px**, so the chart keeps
   a 56px empty margin below the line (and its height is 280px) so a dip in the line never runs behind a card. With fewer than
@@ -111,7 +110,8 @@ the round **Sync accounts** button in the top bar; adding a manual account is in
 - Home layout (`tests/home-layout.test.ts`): the default hides Spending and Accounts; a damaged or old-version value falls
   back; unknown and repeated ids dropped, new ids appended shown; toggle, move, `dropIndex`, `moveWidgetTo` and nudge.
 - Home (`tests/ui/home.test.tsx`, `tests/ui/private.test.tsx`): hero amount with muted cents; the pill with its percentage and
-  `changePhrase`; the range selector (1D to All, 1D opening on an earlier snapshot, Custom applied and cancelled); each card's content and empty state and links (including the category rows' addresses); Customize hides and
+  `changePhrase`; the range selector (1D to All, 1D opening on an earlier snapshot, Custom applied and cancelled, a pick on Home
+  leaving Accounts on its own range); each card's content and empty state and links (including the category rows' addresses); Customize hides and
   reorders and persists; Private mode masks every amount.
 - Spending comparison (`tests/home-layout.test.ts`): each mode's slots and labels, the running totals stopping at today,
   the average month ignoring leading empty months, week starts on Sunday.

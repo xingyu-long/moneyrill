@@ -372,6 +372,32 @@ describe('Home design', () => {
     );
   });
 
+  it("Home's range is its own: Accounts keeps its range, and Home keeps 1D on the way back", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    let hero = await net();
+    await user.click(
+      within(within(hero).getByRole('group', { name: 'Chart range' })).getByRole('button', {
+        name: '1D',
+      }),
+    );
+    const nav = within(screen.getByRole('navigation', { name: 'Main' }));
+    await user.click(nav.getByRole('link', { name: /Accounts/ }));
+    const card = (await screen.findByText('TOTAL NET WORTH')).closest('section')!;
+    const accountsRange = within(card).getByRole('group', { name: 'Chart range' });
+    expect(within(accountsRange).getByRole('button', { name: '1M' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(nav.getByRole('link', { name: /Home/ }));
+    hero = await net();
+    expect(
+      within(within(hero).getByRole('group', { name: 'Chart range' })).getByRole('button', {
+        name: '1D',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('a custom range is picked with From and To, and Cancel leaves the range as it was', async () => {
     const user = userEvent.setup();
     render(<App />);
