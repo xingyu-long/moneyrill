@@ -91,7 +91,6 @@ function spanPhrase(period: string, span?: Span) {
 
 /** The chart range's own words, for "... over the last month". */
 const PERIOD_PHRASE: Record<string, string> = {
-  '1D': 'over the last day',
   '1W': 'over the last week',
   '1M': 'over the last month',
   '2M': 'over the last 2 months',
@@ -132,7 +131,6 @@ export const periodName = (period: string) => (period === 'ALL' ? 'All-time' : p
 
 /** How long a change has been going on, for the pill under net worth: "since last month", "over the last year". */
 const CHANGE_PHRASE: Record<string, string> = {
-  '1D': 'since yesterday',
   '1W': 'since last week',
   '1M': 'since last month',
 };

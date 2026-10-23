@@ -45,10 +45,10 @@ the cards, and is not one of the cards that can be hidden or moved.
 - A **pill** saying how much it changed, by how much in percent, and over what: `+$161,200.12 (+2.31%) since last month`
   (an up arrow, accent colour) or `−$… (−…%)` (a down arrow, warning colour); in Private mode only the **percentage**. The
   percentage is left out when the baseline is zero or negative. With no baseline: "Not enough history yet". The words are
-  `changePhrase`: 1D "since yesterday", 1W "since last week", 1M "since last month", 2M/3M/6M "over the last N months", YTD
+  `changePhrase`: 1W "since last week", 1M "since last month", 2M/3M/6M "over the last N months", YTD
   "so far this year", 1Y "over the last year", All "since the start", a custom range "from Jul 1, 2026 to Sep 30, 2026".
-  A 1D or 1W range with no snapshot on its first day opens on the last snapshot before it and says so: "since Oct 1, 2026".
-- A range selector **1D, 1W, 1M, 3M, YTD, 1Y, All** and **Custom** (`HeroRange`), the same period as the figures use. It is
+  A 1W range with no snapshot on its first day opens on the last snapshot before it and says so: "since Sep 28, 2026".
+- A range selector **1W, 1M, 3M, YTD, 1Y, All** and **Custom** (`HeroRange`), the same period as the figures use. It is
   Home's own (`homePeriod`): a range picked here does not change Accounts or an account page, and they do not change it. **Custom** opens a From and To picker (no day after today; the start must be before the
   end, otherwise Apply is off and it says so) with shortcuts that fill both in (This month, Last month, Last year). Apply
   makes it the range and the button shows its dates; Cancel, Escape or a click outside leaves the range as it was; picking a
@@ -110,7 +110,7 @@ the round **Sync accounts** button in the top bar; adding a manual account is in
 - Home layout (`tests/home-layout.test.ts`): the default hides Spending and Accounts; a damaged or old-version value falls
   back; unknown and repeated ids dropped, new ids appended shown; toggle, move, `dropIndex`, `moveWidgetTo` and nudge.
 - Home (`tests/ui/home.test.tsx`, `tests/ui/private.test.tsx`): hero amount with muted cents; the pill with its percentage and
-  `changePhrase`; the range selector (1D to All, 1D opening on an earlier snapshot, Custom applied and cancelled, a pick on Home
+  `changePhrase`; the range selector (1W to All, Custom applied and cancelled, a pick on Home
   leaving Accounts on its own range); each card's content and empty state and links (including the category rows' addresses); Customize hides and
   reorders and persists; Private mode masks every amount.
 - Spending comparison (`tests/home-layout.test.ts`): each mode's slots and labels, the running totals stopping at today,

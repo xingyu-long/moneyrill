@@ -363,13 +363,12 @@ test('the pill under net worth says how long the change has run', () => {
   assert.equal(changePhrase('3M'), 'over the last 3 months');
   assert.equal(changePhrase('1Y'), 'over the last year');
   assert.equal(changePhrase('ALL'), 'since the start');
-  assert.equal(changePhrase('1D'), 'since yesterday');
   assert.equal(changePhrase('1W'), 'since last week');
   assert.equal(changePhrase('YTD'), 'so far this year');
   // a range that had to open on an earlier snapshot says so; one that did not keeps its words
   const span = { from: '2026-09-28', to: '2026-10-03', early: true };
-  assert.equal(changePhrase('1D', span), 'since Sep 28, 2026');
-  assert.equal(changePhrase('1D', { ...span, early: false }), 'since yesterday');
+  assert.equal(changePhrase('1W', span), 'since Sep 28, 2026');
+  assert.equal(changePhrase('1W', { ...span, early: false }), 'since last week');
   assert.equal(
     changePhrase('CUSTOM', { ...span, early: false }),
     'from Sep 28, 2026 to Oct 3, 2026',

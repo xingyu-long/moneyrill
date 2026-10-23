@@ -351,7 +351,7 @@ describe('Home design', () => {
     expect(within(hero).queryByRole('button', { name: /Private mode/ })).toBeNull();
   });
 
-  it('the hero offers 1D to All and a custom range, and the change shows its percentage', async () => {
+  it('the hero offers 1W to All and a custom range, and the change shows its percentage', async () => {
     const user = userEvent.setup();
     render(<App />);
     const hero = await net();
@@ -360,25 +360,24 @@ describe('Home design', () => {
       within(range)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toEqual(['1D', '1W', '1M', '3M', 'YTD', '1Y', 'All']);
+    ).toEqual(['1W', '1M', '3M', 'YTD', '1Y', 'All']);
     // the made-up balances run from $1,950 on Oct 1 to $2,350 on Oct 3
     expect(hero).toHaveTextContent('+$400.00(+20.51%) since last month');
-    // there is no snapshot on Oct 2, so 1D opens on Oct 1 and says so
-    await user.click(within(range).getByRole('button', { name: '1D' }));
-    expect(hero).toHaveTextContent('+$400.00(+20.51%) since Oct 1, 2026');
+    await user.click(within(range).getByRole('button', { name: '1W' }));
+    expect(hero).toHaveTextContent('+$400.00(+20.51%) since last week');
     expect(within(hero).getByRole('button', { name: 'Custom' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
   });
 
-  it("Home's range is its own: Accounts keeps its range, and Home keeps 1D on the way back", async () => {
+  it("Home's range is its own: Accounts keeps its range, and Home keeps 1W on the way back", async () => {
     const user = userEvent.setup();
     render(<App />);
     let hero = await net();
     await user.click(
       within(within(hero).getByRole('group', { name: 'Chart range' })).getByRole('button', {
-        name: '1D',
+        name: '1W',
       }),
     );
     const nav = within(screen.getByRole('navigation', { name: 'Main' }));
@@ -393,7 +392,7 @@ describe('Home design', () => {
     hero = await net();
     expect(
       within(within(hero).getByRole('group', { name: 'Chart range' })).getByRole('button', {
-        name: '1D',
+        name: '1W',
       }),
     ).toHaveAttribute('aria-pressed', 'true');
   });

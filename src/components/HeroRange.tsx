@@ -13,7 +13,7 @@ import { Button } from './ui/button.tsx';
 import { PopoverPanel } from './ui/popover.tsx';
 
 /** The periods the hero offers (the other pages keep the longer list). */
-export const HERO_RANGES = ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'ALL'] as const;
+export const HERO_RANGES = ['1W', '1M', '3M', 'YTD', '1Y', 'ALL'] as const;
 
 /** Shortcuts that fill in From and To; the change is still applied with Apply. */
 const SHORTCUTS: { id: PresetId; label: string }[] = [

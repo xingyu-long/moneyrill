@@ -66,7 +66,7 @@ export function useAppModel() {
   const [data, setData] = useState<Data>(empty),
     [dataset, setDataset] = useState('simulated'),
     [period, setPeriod] = useState('1M'),
-    // Home keeps its own range (it offers 1D, 1W and Custom, which the other pages do not), so a pick there stays there.
+    // Home keeps its own range (it offers 1W and Custom, which the other pages do not), so a pick there stays there.
     [homePeriod, setHomePeriod] = useState('1M'),
     // The From and To of Home's custom range; it counts only while the period is CUSTOM.
     [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null),

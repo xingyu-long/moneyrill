@@ -7,13 +7,12 @@ export const CUSTOM = 'CUSTOM';
  * Ranges short enough that a day with no snapshot (a sync that runs weekly, a missed day) would leave them empty, and
  * a custom range: these open on the last snapshot on or before their first day.
  */
-const OPEN_ON_SNAPSHOT = new Set(['1D', '1W', CUSTOM]);
+const OPEN_ON_SNAPSHOT = new Set(['1W', CUSTOM]);
 
 export function startDate(end: string, period: string) {
   const d = new Date(end + 'T12:00:00Z');
   if (period === 'ALL') return '1900-01-01';
   if (period === 'YTD') return `${d.getUTCFullYear()}-01-01`;
-  if (period === '1D') return addDays(end, -1);
   if (period === '1W') return addDays(end, -7);
   d.setUTCMonth(
     d.getUTCMonth() -
