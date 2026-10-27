@@ -15,6 +15,11 @@ export function configuration(env: NodeJS.ProcessEnv) {
   } catch {
     throw new Error('SYNC_TIMEZONE must be an IANA time zone such as America/New_York');
   }
+  const tailscaleHost = (env.TAILSCALE_HOST || '').trim().toLowerCase();
+  if (tailscaleHost && !/^[a-z0-9-]+\.[a-z0-9-]+\.ts\.net$/.test(tailscaleHost))
+    throw new Error(
+      "TAILSCALE_HOST must be this computer's MagicDNS name, such as my-mac.tail1234.ts.net",
+    );
   const syncCron = env.SYNC_CRON || '0 13 * * *';
   if (syncCron.trim().split(/\s+/).length !== 5)
     throw new Error('SYNC_CRON must be a five-field cron expression such as 0 13 * * *');
@@ -27,6 +32,8 @@ export function configuration(env: NodeJS.ProcessEnv) {
     redirectUri: env.PLAID_REDIRECT_URI || undefined,
     // Opt-in: also accept private-network addresses (e.g. http://192.168.1.20:3003).
     allowLan: env.ALLOW_LAN === 'true',
+    // Opt-in: also accept this computer's Tailscale name, served over HTTPS by `tailscale serve` (tailnet only).
+    tailscaleHost,
     // When the app sits behind a reverse proxy you run, trust its X-Forwarded-* headers (client address, https).
     trustProxy: env.TRUST_PROXY === 'true',
     // Daily sync schedule of the worker (default 1 PM Pacific).

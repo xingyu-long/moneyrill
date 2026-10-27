@@ -13,7 +13,11 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 - **Brokerage activity**: buys, sells, dividends, fees, deposits and share transfers are downloaded on every sync for connections with investments access (two years the first time, then the last 30 days) and shown on the Transactions page, labelled by what happened ("Buy · 10 VOO @ $500.00"). They count in Reports only once you give a row a category (a dividend → Dividends & Capital Gains), and never in the portfolio return's cash flows. Migration `015_investment_transactions.sql` is additive.
 - **Show investment accounts** switch on the Transactions page, off by default. It only changes what is listed, never what counts.
 
+- **Reach the app from your phone or laptop with Tailscale**: set `TAILSCALE_HOST` to this computer's MagicDNS name and run `tailscale serve`, and the app answers on `https://<name>.ts.net` inside your private tailnet. It still listens only on localhost; the passphrase and data travel over HTTPS. See `docs/development/OPERATIONS.md`.
+
 ### Changed
+
+- **`TRUST_PROXY` now reaches the app**: before, setting it in `.env` or `.env.production` had no effect because the Compose files did not pass it on → now they do (default off).
 
 - **Transactions page default list**: before, transactions you added to a manual investment account (a 401(k), equity awards) were listed by default → now they are listed with **Show investment accounts** on. They count in Reports exactly as before. The day totals and the page sentence no longer include them.
 

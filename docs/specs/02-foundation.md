@@ -24,6 +24,7 @@ deployed and smoke-tested. Every later feature adds routes, tables and pages to 
    | `PLAID_CLIENT_ID`, `PLAID_SECRET`  | empty                               | `hasKeys` is true only when both are set                                            |
    | `PLAID_REDIRECT_URI`               | none                                | passed to Link when set                                                             |
    | `ALLOW_LAN`                        | `false`                             | `true` also accepts private-network hosts (sign-in is always required)              |
+   | `TAILSCALE_HOST`                   | empty                               | a `*.ts.net` MagicDNS name, also accepted as Host with an `https://` origin         |
    | `TRUST_PROXY`                      | `false`                             | `true` only behind a proxy you run: use `X-Forwarded-*`                             |
    | `SYNC_CRON`, `SYNC_TIMEZONE`       | `0 13 * * *`, `America/Los_Angeles` | five fields; an IANA zone, both validated at startup                                |
    | `MARKET_DATA`                      | on                                  | `off` never contacts Yahoo Finance                                                  |
@@ -72,8 +73,9 @@ deployed and smoke-tested. Every later feature adds routes, tables and pages to 
   `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`.
 - **Every `/api` request** gets `Cache-Control: no-store` and three checks, each answering 403 with
   `{error}`: the `Host` must be allowed (`localhost` or `127.0.0.1`, plus private-network hosts only with
-  `ALLOW_LAN`: `10.x`, `172.16-31.x`, `192.168.x` and `*.local`); an `Origin`, when present, must be the configured
-  origin (or its `127.0.0.1` twin, or, in LAN mode, `http://<the Host the request came to>`); and `Sec-Fetch-Site`
+  `ALLOW_LAN`: `10.x`, `172.16-31.x`, `192.168.x` and `*.local`, plus the one `TAILSCALE_HOST` name when set); an `Origin`,
+  when present, must be the configured origin (or its `127.0.0.1` twin, or, in LAN mode, `http://<the Host the request
+came to>`, or, on the Tailscale name, `https://<the Host the request came to>`); and `Sec-Fetch-Site`
   must not be `cross-site`.
 - **Errors.** One handler turns any thrown error into `{error: <Plaid error_code or the message>}` with the error's
   status code (default 400) and logs only the method, the route without its query string and the code.
@@ -154,7 +156,9 @@ last_error)`, unique `(connection_id, provider_id)`; `kind` is `investment`, `ca
 - `configuration()` throws for: an unknown `APP_ENV`, `APP_ENV`/`PLAID_ENV` mismatch, a non-local `PUBLIC_ORIGIN`, a
   bad `SYNC_TIMEZONE`, a `SYNC_CRON` without five fields (`tests/config.test.ts`).
 - Host and origin rules: a foreign `Host` or `Origin` and `Sec-Fetch-Site: cross-site` are refused with 403; LAN hosts
-  are accepted only with `ALLOW_LAN` (`tests/hosts.test.ts`, `tests/app.test.ts`).
+  are accepted only with `ALLOW_LAN`; the Tailscale name only when `TAILSCALE_HOST` is set, only that exact name and only
+  with an `https://` origin; `configuration()` throws for a `TAILSCALE_HOST` that is not a `*.ts.net` name
+  (`tests/hosts.test.ts`, `tests/config.test.ts`, `tests/app.test.ts`).
 - The CSP contains the hash of every inline script in the built page and nothing from other hosts but Plaid
   (`tests/app.test.ts`).
 - Migrations: a changed applied file is refused; a repeat run applies nothing; an environment mismatch refuses to

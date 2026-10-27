@@ -4,9 +4,9 @@ Open items, roughly by priority. What the app does today is specified in `docs/s
 
 ## Remote access (future)
 
-- [x] Sign-in with a single passphrase (done: session cookies, lockout, sign-out, first passphrase created in the browser, changed in Settings → Sign-in). Still open: HTTPS so the passphrase is encrypted in transit and Plaid Link/reconnect work from other devices (Tailscale `serve` or a local certificate), and optionally a passkey (Face ID / Touch ID).
+- [x] Sign-in with a single passphrase (done: session cookies, lockout, sign-out, first passphrase created in the browser, changed in Settings → Sign-in). HTTPS through `tailscale serve` is done (below). Still open: optionally a passkey (Face ID / Touch ID).
 
-- [ ] **Tailscale** for private phone/laptop access to the app without exposing it publicly. Free Personal plan (verify current limits at https://tailscale.com/pricing). No code changes needed; the app stays bound to localhost on the host. If it is ever exposed beyond Tailscale, keep the passphrase sign-in on and add HTTPS first.
+- [x] **Tailscale** for private phone/laptop access: `TAILSCALE_HOST` + `tailscale serve` (HTTPS on the tailnet, the app stays on localhost; see `docs/development/OPERATIONS.md`). Still open: check Plaid Link/Reconnect from a phone through it (OAuth banks may need `PLAID_REDIRECT_URI` on the ts.net name).
 
 ## Transactions
 

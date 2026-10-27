@@ -8,6 +8,21 @@ test('environment pairing fails closed', () => {
   assert.throws(() => configuration({ APP_ENV: 'production', PLAID_ENV: 'sandbox' }));
   assert.throws(() => configuration({ APP_ENV: 'unexpected' }));
 });
+test('TAILSCALE_HOST must be a MagicDNS name', () => {
+  assert.equal(configuration({}).tailscaleHost, '');
+  assert.equal(
+    configuration({ TAILSCALE_HOST: 'My-Mac.tail1234.ts.net' }).tailscaleHost,
+    'my-mac.tail1234.ts.net',
+  );
+  for (const bad of [
+    'example.com',
+    '100.64.0.1',
+    '*.tail1234.ts.net',
+    'ts.net',
+    'a.b.ts.net.evil.com',
+  ])
+    assert.throws(() => configuration({ TAILSCALE_HOST: bad }), bad);
+});
 test('production archive imports reject test data even when mislabeled', () => {
   assert.throws(() => validateArchiveEnvironment({ environment: 'sandbox', tables: {} }, true));
   assert.throws(() =>

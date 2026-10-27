@@ -78,6 +78,7 @@ Set these in `.env` (demo and Sandbox) or `.env.production`.
 | `SYNC_TIMEZONE`                   | `America/Los_Angeles` | Default time zone for `SYNC_CRON` (an IANA name, e.g. `Europe/Berlin`)                                                           |
 | `MARKET_DATA`                     | on                    | `off` never contacts Yahoo Finance: no benchmark lines or ticker price history                                                   |
 | `ALLOW_LAN`, `BIND_ADDRESS`       | off                   | Also serve one private Wi-Fi address; sign-in is always required ([details](docs/development/OPERATIONS.md))                     |
+| `TAILSCALE_HOST`                  | off                   | Also accept this computer's Tailscale name over HTTPS via `tailscale serve` ([details](docs/development/OPERATIONS.md))          |
 | `STAGING_PORT`, `PRODUCTION_PORT` | `3002`, `3003`        | The port each environment is published on (`http://localhost:<port>`); set either in `.env`, or in `.env.production` to override |
 | `TRUST_PROXY`                     | off                   | `true` only behind a reverse proxy you run on this computer: use its `X-Forwarded-*` headers                                     |
 

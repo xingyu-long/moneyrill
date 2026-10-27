@@ -139,6 +139,28 @@ ALLOW_LAN=true
 
 Open `http://<this-computer's-LAN-IP>:3003` (your `PRODUCTION_PORT`) (find it with `ipconfig getifaddr $(route -n get default | awk '/interface:/{print $2}')`). Only private-network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x, `*.local`) are accepted. Sign-in is always required, so nothing under `/api` answers without a session, and until a passphrase exists the sign-in page offers to create one. Plaid Link needs HTTPS, so connect or reconnect accounts from the host computer at `http://localhost:3003`. `deploy.sh` refuses any `BIND_ADDRESS` that is not loopback or a private address, and the app itself rejects other Host headers, so it is never published to the internet; do not port-forward it on your router. If your router gives this computer a new address, update `BIND_ADDRESS` (a DHCP reservation avoids that). Remove the two lines and redeploy to turn it off.
 
+## Reaching the app from your phone or laptop (Tailscale)
+
+[Tailscale](https://tailscale.com) puts your devices on a private network (a tailnet) that only devices signed in to your account can reach. `tailscale serve` gives this computer an HTTPS address on that network and forwards it to the app on `localhost`, so nothing changes in `BIND_ADDRESS`, nothing is opened on your router, and the passphrase travels encrypted. Never use `tailscale funnel`: that publishes the app to the internet.
+
+1. Install Tailscale on this computer and on each device, signed in to the same account. In the admin console turn on **MagicDNS** and **HTTPS certificates**.
+2. Find this computer's name: `tailscale status --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))'` (for example `my-mac.tail1234.ts.net`).
+3. Add to `.env.production` (or `.env` for staging), then redeploy:
+
+   ```sh
+   TAILSCALE_HOST=my-mac.tail1234.ts.net   # this computer's MagicDNS name
+   TRUST_PROXY=true                        # count sign-in attempts per device, not all as one
+   ```
+
+4. Serve it on the tailnet (it keeps running across restarts):
+
+   ```sh
+   tailscale serve --bg --https=443 http://127.0.0.1:3003    # production: https://my-mac.tail1234.ts.net
+   tailscale serve --bg --https=8443 http://127.0.0.1:3002   # staging:    https://my-mac.tail1234.ts.net:8443
+   ```
+
+The app accepts that one name, and only with an `https://` origin; any other `Host` is still refused. `tailscale serve status` shows what is served and `tailscale serve reset` turns it off. `TRUST_PROXY=true` reads the device address from `X-Forwarded-For`, which a client on your Wi-Fi could also send, so do not combine it with `ALLOW_LAN`. The name is published in certificate-transparency logs (harmless, only your tailnet can connect), so do not put anything personal in the computer's name. Restrict which devices may reach this computer with the tailnet's access rules if you share the tailnet.
+
 ## Sign-in (passphrase)
 
 One passphrase for one person, no accounts, and no scripts: everything is in the browser.
@@ -160,7 +182,7 @@ SQL
 - Five wrong attempts (sign-in, or a wrong current passphrase when changing it) from the same address lock sign-in from that address for 15 minutes; other addresses are not affected (restart the app container to clear it). Behind a reverse proxy set `TRUST_PROXY=true` so each client counts separately.
 - Changing the passphrase signs every other device out. **Sign out** is in the top bar.
 - Every response carries a Content-Security-Policy (scripts only from the app itself, one hashed inline script and Plaid Link), `X-Frame-Options: DENY`, `nosniff` and no referrer. The container runs as an unprivileged user.
-- Over plain `http://` on Wi-Fi the passphrase is not encrypted in transit, so treat the network as trusted. HTTPS (Tailscale `serve` or a local certificate) is in TODO.md.
+- Over plain `http://` on Wi-Fi the passphrase is not encrypted in transit, so treat the network as trusted. Through `tailscale serve` (above) it is HTTPS end to end and the session cookie is `Secure`.
 
 ## Backups and database access
 

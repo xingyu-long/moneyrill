@@ -26,3 +26,18 @@ test('origins must be the configured one or, in LAN mode, the page the request c
   assert.ok(!isAllowedOrigin('http://192.168.1.99:3003', '192.168.1.20:3003', cfg, true));
   assert.ok(!isAllowedOrigin('https://evil.example', '192.168.1.20:3003', cfg, true));
 });
+
+test('the Tailscale name is accepted only when configured, and only over https', () => {
+  const ts = 'my-mac.tail1234.ts.net';
+  const cfg = 'http://localhost:3003';
+  assert.ok(!isAllowedHost(ts, true));
+  assert.ok(isAllowedHost(ts, false, ts));
+  assert.ok(isAllowedHost('MY-MAC.tail1234.ts.net', false, ts));
+  assert.ok(!isAllowedHost('other-mac.tail1234.ts.net', false, ts));
+  assert.ok(!isAllowedHost('192.168.1.20', false, ts));
+  assert.ok(!isAllowedOrigin(`https://${ts}`, ts, cfg, true));
+  assert.ok(isAllowedOrigin(`https://${ts}`, ts, cfg, false, ts));
+  assert.ok(!isAllowedOrigin(`http://${ts}`, ts, cfg, false, ts));
+  assert.ok(!isAllowedOrigin('https://evil.example', ts, cfg, false, ts));
+  assert.ok(!isAllowedOrigin(`https://${ts}`, 'evil.example', cfg, false, ts));
+});

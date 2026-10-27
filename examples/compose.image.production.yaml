@@ -39,6 +39,8 @@ services:
       KEY_FILE: /run/secrets/token_key
       PORT: 3002
       ALLOW_LAN: ${ALLOW_LAN:-false}
+      TAILSCALE_HOST: ${TAILSCALE_HOST:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
     secrets: [token_key]
     depends_on:
       db: { condition: service_healthy }

@@ -68,11 +68,17 @@ export async function createApp(opts: { authStore?: AuthStore; failureDelayMs?: 
   app.addHook('onRequest', async (req, reply) => {
     if (!isApiRequest(req)) return;
     reply.header('Cache-Control', 'no-store');
-    if (!isAllowedHost(req.headers.host, config.allowLan))
+    if (!isAllowedHost(req.headers.host, config.allowLan, config.tailscaleHost))
       return reply.code(403).send({ error: 'Local access only' });
     if (
       req.headers.origin &&
-      !isAllowedOrigin(req.headers.origin, req.headers.host, config.origin, config.allowLan)
+      !isAllowedOrigin(
+        req.headers.origin,
+        req.headers.host,
+        config.origin,
+        config.allowLan,
+        config.tailscaleHost,
+      )
     )
       return reply.code(403).send({ error: 'Origin not allowed' });
     if (req.headers['sec-fetch-site'] === 'cross-site')
